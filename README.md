@@ -29,6 +29,14 @@ If `VITE_N8N_WEBHOOK_URL` is set, `VITE_N8N_WEBHOOK_USERNAME` and `VITE_N8N_WEBH
 npm run build   # outputs to /dist
 ```
 
+## Start command (for Web Service deploys)
+
+```bash
+npm start
+```
+
+If your DigitalOcean component is configured as a **Web Service** (not a Static Site), set the run command to `npm start`.
+
 ## Deploy to Digital Ocean App Platform
 
 1. Push this repo to GitHub
