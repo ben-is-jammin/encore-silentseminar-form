@@ -29,18 +29,18 @@ If `VITE_N8N_WEBHOOK_URL` is set, `VITE_N8N_WEBHOOK_USERNAME` and `VITE_N8N_WEBH
 npm run build   # outputs to /dist
 ```
 
-## Start command (for Web Service deploys)
+## Production start
 
 ```bash
 npm start
 ```
 
-If your DigitalOcean component is configured as a **Web Service** (not a Static Site), set the run command to `npm start`.
+This serves the built `dist` output with a static file server. It does not run `vite preview` in production.
 
 ## Deploy to Digital Ocean App Platform
 
 1. Push this repo to GitHub
-2. In Digital Ocean App Platform, create a new Static Site
+2. In Digital Ocean App Platform, prefer a new **Static Site**
 3. Connect your GitHub repo
 4. Set:
    - **Build command**: `npm run build`
@@ -50,3 +50,5 @@ If your DigitalOcean component is configured as a **Web Service** (not a Static 
    - `VITE_N8N_WEBHOOK_USERNAME` = your n8n basic auth username
    - `VITE_N8N_WEBHOOK_PASSWORD` = your n8n basic auth password
 6. Deploy — auto-deploys on every push to `main`
+
+If you keep this app as a **Web Service** instead of a Static Site, set the run command to `npm start`. That will serve `dist` with `serve` and avoids Vite host validation errors.
