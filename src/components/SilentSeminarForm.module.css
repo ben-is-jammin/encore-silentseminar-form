@@ -272,6 +272,9 @@
   background: rgba(27,20,100,0.03);
   box-shadow: 0 0 0 1px var(--indigo);
 }
+.equipCardLocked {
+  border-color: var(--indigo);
+}
 .equipCheck {
   position: absolute;
   top: 12px;
@@ -280,6 +283,9 @@
   height: 16px;
   accent-color: var(--indigo);
   cursor: pointer;
+}
+.equipCheck:disabled {
+  cursor: not-allowed;
 }
 .equipIcon {
   width: 32px;
@@ -301,6 +307,14 @@
   padding-right: 22px;
 }
 .equipDesc { font-size: 11px; color: var(--gray-mid); line-height: 1.5; }
+.equipLockNote {
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--indigo);
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
 
 .equipQty {
   display: flex;

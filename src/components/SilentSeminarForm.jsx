@@ -60,11 +60,12 @@ function encodeBasicAuth(username, password) {
   return `Basic ${btoa(binary)}`
 }
 
-function EquipCard({ id, name, description, icon, checked, quantity, onToggle, onQtyChange }) {
+function EquipCard({ id, name, description, icon, checked, quantity, locked, onToggle, onQtyChange }) {
   return (
     <div
-      className={`${styles.equipCard} ${checked ? styles.equipCardSelected : ''}`}
+      className={`${styles.equipCard} ${checked ? styles.equipCardSelected : ''} ${locked ? styles.equipCardLocked : ''}`}
       onClick={(e) => {
+        if (locked) return
         if (e.target.closest(`.${styles.equipQty}`)) return
         onToggle()
       }}
@@ -73,13 +74,15 @@ function EquipCard({ id, name, description, icon, checked, quantity, onToggle, o
         type="checkbox"
         className={styles.equipCheck}
         checked={checked}
+        disabled={locked}
         onChange={onToggle}
         onClick={(e) => e.stopPropagation()}
-        aria-label={`Select ${name}`}
+        aria-label={locked ? `${name} is required` : `Select ${name}`}
       />
       <div className={styles.equipIcon}>{icon}</div>
       <div className={styles.equipName}>{name}</div>
       <div className={styles.equipDesc}>{description}</div>
+      {locked && <div className={styles.equipLockNote}>Required minimum of 1</div>}
 
       {checked && (
         <div className={styles.equipQty} onClick={(e) => e.stopPropagation()}>
@@ -137,7 +140,7 @@ const INITIAL_FORM = {
 
 const INITIAL_EQUIPMENT = {
   headset:     { checked: false, quantity: 1 },
-  transmitter: { checked: false, quantity: 1 },
+  transmitter: { checked: true, quantity: 1 },
   branded:     { checked: false, quantity: 1 },
 }
 
@@ -182,6 +185,7 @@ const EQUIPMENT_META = {
 
 function validate(form, equipment, billingSame) {
   const errors = {}
+  const email = form.email.trim()
 
   if (!form.eventName.trim())        errors.eventName       = 'Please enter the event name.'
   if (!form.startDate)               errors.startDate       = 'Required.'
@@ -191,15 +195,21 @@ function validate(form, equipment, billingSame) {
   if (!form.shippingType)            errors.shippingType    = 'Please select an address type.'
   if (!form.shippingAddress.trim())  errors.shippingAddress = 'Please enter a shipping address.'
   if (!form.fullName.trim())         errors.fullName        = 'Please enter your full name.'
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()))
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
                                      errors.email           = 'Please enter a valid email address.'
+  else if (!/@encoreglobal\.com$/i.test(email))
+                                     errors.email           = 'Please use your @encoreglobal.com email address.'
   if (form.phone.replace(/\D/g,'').length < 10)
                                      errors.phone           = 'Please enter a valid phone number (at least 10 digits).'
   if (!billingSame && !form.billingAddress.trim())
                                      errors.billingAddress  = 'Please enter a billing address.'
 
+  if (!equipment.transmitter?.checked || equipment.transmitter.quantity < 1)
+                                     errors.equipment       = 'At least one transmitter is required for every order.'
+
   const anyEquip = Object.values(equipment).some(e => e.checked)
-  if (!anyEquip) errors.equipment = 'Please select at least one piece of equipment.'
+  if (!anyEquip && !errors.equipment)
+    errors.equipment = 'Please select at least one piece of equipment.'
 
   return errors
 }
@@ -220,6 +230,8 @@ export default function SilentSeminarForm() {
   }, [])
 
   const toggleEquip = useCallback((key) => {
+    if (key === 'transmitter') return
+
     setEquipment(prev => ({
       ...prev,
       [key]: { ...prev[key], checked: !prev[key].checked },
@@ -515,13 +527,13 @@ export default function SilentSeminarForm() {
                     <input
                       className={`${styles.input} ${errors.email ? styles.inputError : ''}`}
                       id="email" type="email"
-                      placeholder="your.email@example.com"
+                      placeholder="your.name@encoreglobal.com"
                       autoComplete="email"
                       value={form.email}
                       onChange={e => setField('email', e.target.value)}
                       data-error={!!errors.email}
                     />
-                    <p className={styles.fieldHint}>Format: your.email@example.com</p>
+                    <p className={styles.fieldHint}>Use your @encoreglobal.com email address.</p>
                     <FieldError message={errors.email} show={!!errors.email} />
                   </div>
                   <div>
@@ -638,6 +650,9 @@ export default function SilentSeminarForm() {
                   Select the equipment you need for your event.{' '}
                   <span className={styles.req}>*</span>
                 </p>
+                <p className={styles.fieldNote}>
+                  One transmitter is included by default and required for every order. Increase the transmitter quantity if you need additional broadcasts.
+                </p>
 
                 <div className={styles.equipGrid}>
                   {Object.entries(EQUIPMENT_META).map(([key, meta]) => (
@@ -649,6 +664,7 @@ export default function SilentSeminarForm() {
                       icon={meta.icon}
                       checked={equipment[key].checked}
                       quantity={equipment[key].quantity}
+                      locked={key === 'transmitter'}
                       onToggle={() => toggleEquip(key)}
                       onQtyChange={(qty) => setQty(key, qty)}
                     />
