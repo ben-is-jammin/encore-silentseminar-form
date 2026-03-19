@@ -48,6 +48,18 @@ function FieldError({ message, show }) {
   return <p className={styles.fieldError}>{message}</p>
 }
 
+function encodeBasicAuth(username, password) {
+  const credentials = `${username}:${password}`
+  const bytes = new TextEncoder().encode(credentials)
+  let binary = ''
+
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte)
+  })
+
+  return `Basic ${btoa(binary)}`
+}
+
 function EquipCard({ id, name, description, icon, checked, quantity, onToggle, onQtyChange }) {
   return (
     <div
@@ -259,10 +271,20 @@ export default function SilentSeminarForm() {
 
     try {
       const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL
+      const webhookUsername = import.meta.env.VITE_N8N_WEBHOOK_USERNAME
+      const webhookPassword = import.meta.env.VITE_N8N_WEBHOOK_PASSWORD
+
       if (webhookUrl) {
+        if (!webhookUsername || !webhookPassword) {
+          throw new Error('Missing n8n basic auth credentials')
+        }
+
         const res = await fetch(webhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: encodeBasicAuth(webhookUsername, webhookPassword),
+          },
           body: JSON.stringify(payload),
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
