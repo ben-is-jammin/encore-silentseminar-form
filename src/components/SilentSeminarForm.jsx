@@ -405,11 +405,32 @@ export default function SilentSeminarForm() {
                   />
                 </div>
 
-                <div className={`${styles.fieldGroup} ${styles.row4}`}>
+                <div className={`${styles.fieldGroup} ${styles.row2}`}>
                   {[
-                    { id: 'startDate',   label: 'Start date',    field: 'startDate',   err: errors.startDate   },
-                    { id: 'endDate',     label: 'End date',      field: 'endDate',     err: errors.endDate     },
-                    { id: 'loadInDate',  label: 'Load-in date',  field: 'loadInDate',  err: errors.loadInDate  },
+                    { id: 'startDate', label: 'Start date', field: 'startDate', err: errors.startDate },
+                    { id: 'endDate',   label: 'End date',   field: 'endDate',   err: errors.endDate },
+                  ].map(({ id, label, field, err }) => (
+                    <div key={id}>
+                      <label className={styles.label} htmlFor={id}>
+                        {label} <span className={styles.req}>*</span>
+                      </label>
+                      <input
+                        className={`${styles.input} ${err ? styles.inputError : ''}`}
+                        id={id} type="date"
+                        value={form[field]}
+                        onChange={e => setField(field, e.target.value)}
+                        data-error={!!err}
+                      />
+                      <FieldError message={err} show={!!err} />
+                    </div>
+                  ))}
+                </div>
+
+                <p className={styles.fieldNote}>Start date and end date should reflect the event dates.</p>
+
+                <div className={`${styles.fieldGroup} ${styles.row2}`}>
+                  {[
+                    { id: 'loadInDate',  label: 'Load-in date',  field: 'loadInDate',  err: errors.loadInDate },
                     { id: 'loadOutDate', label: 'Load-out date', field: 'loadOutDate', err: errors.loadOutDate },
                   ].map(({ id, label, field, err }) => (
                     <div key={id}>
