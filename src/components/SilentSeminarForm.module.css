@@ -252,16 +252,26 @@
   font-weight: 700;
   color: var(--indigo);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-top: 18px;
-  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+  margin-top: 20px;
+  margin-bottom: 10px;
 }
 .equipSectionLabel:first-of-type {
   margin-top: 4px;
 }
 
 .transmitterWrap {
-  margin-bottom: 20px;
+  margin-bottom: 0;
+}
+
+.equipDivider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0 8px;
+}
+
+.headsetHelperArea {
+  min-height: 8px;
 }
 
 .equipCardWide {
@@ -276,7 +286,6 @@
   flex-shrink: 0;
 }
 .equipCardWide .equipName {
-  flex: 1;
   margin-bottom: 0;
   padding-right: 0;
 }
@@ -284,7 +293,7 @@
   width: 100%;
   order: 5;
   flex: none;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 .equipCardWide .equipLockNote {
   order: 6;
@@ -295,6 +304,11 @@
   margin-top: 0;
   margin-left: auto;
   flex-shrink: 0;
+}
+.equipCardWide .equipQtyWrap {
+  opacity: 1;
+  visibility: visible;
+  max-height: none;
 }
 
 .headsetGrid {
@@ -346,13 +360,24 @@
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 16px;
-  height: 16px;
-  accent-color: var(--indigo);
-  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.18s, background 0.18s;
+  pointer-events: none;
 }
-.equipCheck:disabled {
-  cursor: not-allowed;
+.equipCheck svg {
+  width: 14px;
+  height: 14px;
+}
+.equipCheckActive {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: var(--white);
 }
 .equipIcon {
   width: 32px;
@@ -384,14 +409,30 @@
 }
 
 .equipCardFooter {
-  min-height: 54px;
+  min-height: 58px;
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.equipQtyWrap {
+  opacity: 0;
+  visibility: hidden;
+  max-height: 0;
+  transition: opacity 0.2s, visibility 0.2s, max-height 0.2s;
+  overflow: hidden;
+}
+.equipQtyVisible {
+  opacity: 1;
+  visibility: visible;
+  max-height: 60px;
 }
 
 .equipQty {
   display: flex;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 10px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
