@@ -76,21 +76,28 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
   return (
     <div
       className={`${styles.equipCard} ${checked ? styles.equipCardSelected : ''} ${locked ? styles.equipCardLocked : ''} ${wide ? styles.equipCardWide : ''}`}
+      role={locked ? undefined : 'button'}
+      tabIndex={locked ? undefined : 0}
       onClick={(e) => {
         if (locked) return
         if (e.target.closest(`.${styles.equipQty}`)) return
         onToggle()
       }}
+      onKeyDown={(e) => {
+        if (locked) return
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onToggle() }
+      }}
+      aria-pressed={locked ? undefined : checked}
+      aria-label={locked ? undefined : `Select ${name}`}
     >
       {!locked && (
-        <input
-          type="checkbox"
-          className={styles.equipCheck}
-          checked={checked}
-          onChange={onToggle}
-          onClick={(e) => e.stopPropagation()}
-          aria-label={`Select ${name}`}
-        />
+        <span className={`${styles.equipCheck} ${checked ? styles.equipCheckActive : ''}`} aria-hidden="true">
+          {checked && (
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3.5 8.5 6.5 11.5 12.5 5" />
+            </svg>
+          )}
+        </span>
       )}
       <div className={styles.equipIcon}>{icon}</div>
       <div className={styles.equipName}>{name}</div>
@@ -98,36 +105,37 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
       {locked && <div className={styles.equipLockNote}>Required minimum of 1</div>}
 
       <div className={styles.equipCardFooter}>
-        {checked ? (
-          <>
-            <div className={styles.equipQty} onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                className={styles.qtyBtn}
-                onClick={() => onQtyChange(Math.max(1, quantity - 1))}
-                aria-label="Decrease quantity"
-              >−</button>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                className={styles.qtyInput}
-                value={rawQty}
-                onChange={(e) => setRawQty(e.target.value.replace(/[^0-9]/g, ''))}
-                onBlur={() => commitQty(rawQty)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitQty(rawQty) } }}
-                aria-label={`Quantity for ${name}`}
-              />
-              <button
-                type="button"
-                className={styles.qtyBtn}
-                onClick={() => onQtyChange(Math.min(MAX_QTY, quantity + 1))}
-                aria-label="Increase quantity"
-              >+</button>
-            </div>
-            <div className={styles.qtyLabel}>units</div>
-          </>
-        ) : null}
+        <div className={`${styles.equipQtyWrap} ${checked ? styles.equipQtyVisible : ''}`} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.equipQty}>
+            <button
+              type="button"
+              className={styles.qtyBtn}
+              onClick={() => onQtyChange(Math.max(1, quantity - 1))}
+              aria-label="Decrease quantity"
+              tabIndex={checked ? 0 : -1}
+            >−</button>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className={styles.qtyInput}
+              value={rawQty}
+              onChange={(e) => setRawQty(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={() => commitQty(rawQty)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitQty(rawQty) } }}
+              aria-label={`Quantity for ${name}`}
+              tabIndex={checked ? 0 : -1}
+            />
+            <button
+              type="button"
+              className={styles.qtyBtn}
+              onClick={() => onQtyChange(Math.min(MAX_QTY, quantity + 1))}
+              aria-label="Increase quantity"
+              tabIndex={checked ? 0 : -1}
+            >+</button>
+          </div>
+          <div className={styles.qtyLabel}>units</div>
+        </div>
       </div>
     </div>
   )
@@ -151,9 +159,9 @@ const INITIAL_FORM = {
 }
 
 const INITIAL_EQUIPMENT = {
-  headset:     { checked: false, quantity: 1 },
+  headset:     { checked: false, quantity: 25 },
   transmitter: { checked: true, quantity: 1 },
-  branded:     { checked: false, quantity: 1 },
+  branded:     { checked: false, quantity: 25 },
 }
 
 const EQUIPMENT_META = {
@@ -677,6 +685,8 @@ export default function SilentSeminarForm() {
                   />
                 </div>
 
+                <div className={styles.equipDivider} />
+
                 {/* Section B: Headsets (responsive grid) */}
                 <div className={styles.equipSectionLabel}>Headsets</div>
                 <div className={styles.headsetGrid}>
@@ -697,12 +707,14 @@ export default function SilentSeminarForm() {
                       />
                     ))}
                 </div>
-                {totalHeadsets >= 1000 && (
-                  <p className={styles.leadTimeNote}>
-                    <strong>Orders of 1,000 headsets or more require a minimum 45-day lead time.</strong>{' '}
-                    Earliest allowed load-in date: {formatDateLabel(minLoadIn)}.
-                  </p>
-                )}
+                <div className={styles.headsetHelperArea}>
+                  {totalHeadsets >= 1000 && (
+                    <p className={styles.leadTimeNote}>
+                      <strong>Orders of 1,000 headsets or more require a minimum 45-day lead time.</strong>{' '}
+                      Earliest allowed load-in date: {formatDateLabel(minLoadIn)}.
+                    </p>
+                  )}
+                </div>
                 <FieldError message={errors.equipment} show={!!errors.equipment} />
               </section>
 
