@@ -62,7 +62,7 @@ function encodeBasicAuth(username, password) {
 
 const MAX_QTY = 10000
 
-function EquipCard({ id, name, description, icon, checked, quantity, locked, onToggle, onQtyChange }) {
+function EquipCard({ id, name, description, icon, checked, quantity, locked, wide, onToggle, onQtyChange }) {
   const [rawQty, setRawQty] = useState(String(quantity))
   useEffect(() => { setRawQty(String(quantity)) }, [quantity])
 
@@ -75,22 +75,23 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, onT
 
   return (
     <div
-      className={`${styles.equipCard} ${checked ? styles.equipCardSelected : ''} ${locked ? styles.equipCardLocked : ''}`}
+      className={`${styles.equipCard} ${checked ? styles.equipCardSelected : ''} ${locked ? styles.equipCardLocked : ''} ${wide ? styles.equipCardWide : ''}`}
       onClick={(e) => {
         if (locked) return
         if (e.target.closest(`.${styles.equipQty}`)) return
         onToggle()
       }}
     >
-      <input
-        type="checkbox"
-        className={styles.equipCheck}
-        checked={checked}
-        disabled={locked}
-        onChange={onToggle}
-        onClick={(e) => e.stopPropagation()}
-        aria-label={locked ? `${name} is required` : `Select ${name}`}
-      />
+      {!locked && (
+        <input
+          type="checkbox"
+          className={styles.equipCheck}
+          checked={checked}
+          onChange={onToggle}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Select ${name}`}
+        />
+      )}
       <div className={styles.equipIcon}>{icon}</div>
       <div className={styles.equipName}>{name}</div>
       <div className={styles.equipDesc}>{description}</div>
@@ -659,21 +660,42 @@ export default function SilentSeminarForm() {
                   One transmitter is included by default and required for every order. Increase the transmitter quantity if you need additional broadcasts.
                 </p>
 
-                <div className={styles.equipGrid}>
-                  {Object.entries(EQUIPMENT_META).map(([key, meta]) => (
-                    <EquipCard
-                      key={key}
-                      id={key}
-                      name={meta.name}
-                      description={meta.description}
-                      icon={meta.icon}
-                      checked={equipment[key].checked}
-                      quantity={equipment[key].quantity}
-                      locked={key === 'transmitter'}
-                      onToggle={() => toggleEquip(key)}
-                      onQtyChange={(qty) => setQty(key, qty)}
-                    />
-                  ))}
+                {/* Section A: Transmitter (full width, required) */}
+                <div className={styles.equipSectionLabel}>Transmitter (Required)</div>
+                <div className={styles.transmitterWrap}>
+                  <EquipCard
+                    id="transmitter"
+                    name={EQUIPMENT_META.transmitter.name}
+                    description={EQUIPMENT_META.transmitter.description}
+                    icon={EQUIPMENT_META.transmitter.icon}
+                    checked={equipment.transmitter.checked}
+                    quantity={equipment.transmitter.quantity}
+                    locked
+                    wide
+                    onToggle={() => {}}
+                    onQtyChange={(qty) => setQty('transmitter', qty)}
+                  />
+                </div>
+
+                {/* Section B: Headsets (responsive grid) */}
+                <div className={styles.equipSectionLabel}>Headsets</div>
+                <div className={styles.headsetGrid}>
+                  {Object.entries(EQUIPMENT_META)
+                    .filter(([key]) => key !== 'transmitter')
+                    .map(([key, meta]) => (
+                      <EquipCard
+                        key={key}
+                        id={key}
+                        name={meta.name}
+                        description={meta.description}
+                        icon={meta.icon}
+                        checked={equipment[key].checked}
+                        quantity={equipment[key].quantity}
+                        locked={false}
+                        onToggle={() => toggleEquip(key)}
+                        onQtyChange={(qty) => setQty(key, qty)}
+                      />
+                    ))}
                 </div>
                 {totalHeadsets >= 1000 && (
                   <p className={styles.leadTimeNote}>

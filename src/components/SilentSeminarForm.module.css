@@ -247,11 +247,60 @@
   line-height: 1.55;
 }
 
-.equipGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
+.equipSectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--indigo);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+.equipSectionLabel:first-of-type {
   margin-top: 4px;
+}
+
+.transmitterWrap {
+  margin-bottom: 20px;
+}
+
+.equipCardWide {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  cursor: default;
+}
+.equipCardWide .equipIcon {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+.equipCardWide .equipName {
+  flex: 1;
+  margin-bottom: 0;
+  padding-right: 0;
+}
+.equipCardWide .equipDesc {
+  width: 100%;
+  order: 5;
+  flex: none;
+  margin-top: 2px;
+}
+.equipCardWide .equipLockNote {
+  order: 6;
+  margin-top: 4px;
+}
+.equipCardWide .equipCardFooter {
+  min-height: auto;
+  margin-top: 0;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.headsetGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
   align-items: stretch;
 }
 
@@ -515,10 +564,9 @@
   .header { padding: 0 20px; }
   .cardHeader, .formBody { padding-left: 22px; padding-right: 22px; }
   .row2, .row4 { grid-template-columns: 1fr; }
-  .equipGrid { grid-template-columns: 1fr; }
+  .headsetGrid { grid-template-columns: 1fr; }
   .successState { padding: 40px 22px; }
 }
 @media (min-width: 601px) and (max-width: 800px) {
   .row4 { grid-template-columns: 1fr 1fr; }
-  .equipGrid { grid-template-columns: repeat(2, 1fr); }
 }
