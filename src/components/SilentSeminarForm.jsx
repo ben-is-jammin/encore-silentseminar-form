@@ -134,7 +134,15 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
               tabIndex={checked ? 0 : -1}
             >+</button>
           </div>
-          <div className={styles.qtyLabel}>units</div>
+          <select
+            className={styles.qtyUnitSelect}
+            aria-label={`Unit type for ${name}`}
+            tabIndex={checked ? 0 : -1}
+            value="units"
+            onChange={() => {}}
+          >
+            <option value="units">units</option>
+          </select>
         </div>
       </div>
     </div>
@@ -143,19 +151,22 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
 
 // ─── Initial state ──────────────────────────────────────────────────────────
 
+const MAX_OPPORTUNITY_NUMBER_LENGTH = 20
+
 const INITIAL_FORM = {
-  eventName:          '',
-  eventDetails:       '',
-  startDate:          '',
-  endDate:            '',
-  loadInDate:         '',
-  loadOutDate:        '',
-  shippingType:       '',
-  shippingAddress:    '',
-  fullName:           '',
-  email:              '',
-  phone:              '',
-  notes:              '',
+  eventName:              '',
+  eventOpportunityNumber: '',
+  eventDetails:           '',
+  startDate:              '',
+  endDate:                '',
+  loadInDate:             '',
+  loadOutDate:            '',
+  shippingType:           '',
+  shippingAddress:        '',
+  fullName:               '',
+  email:                  '',
+  phone:                  '',
+  notes:                  '',
 }
 
 const INITIAL_EQUIPMENT = {
@@ -246,6 +257,10 @@ function validate(form, equipment, liveErrors) {
   const email = form.email.trim()
 
   if (!form.eventName.trim())        errors.eventName       = 'Please enter the event name.'
+  if (form.eventOpportunityNumber && !/^[A-Za-z0-9]+$/.test(form.eventOpportunityNumber))
+                                     errors.eventOpportunityNumber = 'Event opportunity number can only include letters and numbers.'
+  if (form.eventOpportunityNumber.length > MAX_OPPORTUNITY_NUMBER_LENGTH)
+                                     errors.eventOpportunityNumber = `Event opportunity number must be ${MAX_OPPORTUNITY_NUMBER_LENGTH} characters or fewer.`
   if (!form.startDate)               errors.startDate       = 'Required.'
   if (!form.endDate)                 errors.endDate         = 'Required.'
   if (!form.loadInDate)              errors.loadInDate      = 'Required.'
@@ -335,6 +350,7 @@ export default function SilentSeminarForm() {
 
     const payload = {
       event_name:               form.eventName,
+      event_opportunity_number: form.eventOpportunityNumber,
       event_details:            form.eventDetails,
       start_date:               form.startDate,
       end_date:                 form.endDate,
@@ -377,6 +393,7 @@ export default function SilentSeminarForm() {
 
       setSummary({
         eventName:  payload.event_name,
+        ...(payload.event_opportunity_number && { opportunityNumber: `Opportunity #: ${payload.event_opportunity_number}` }),
         dates:      `${payload.start_date} to ${payload.end_date}`,
         shipping:   `${payload.shipping_address_type} — ${payload.shipping_address.split('\n')[0]}`,
         equipment:  selectedEquipment.map(e => `${e.quantity}x ${e.item}`).join(', '),
@@ -474,6 +491,23 @@ export default function SilentSeminarForm() {
                     data-error={!!errors.eventName}
                   />
                   <FieldError message={errors.eventName} show={!!errors.eventName} />
+                </div>
+
+                <div className={styles.fieldGroup}>
+                  <label className={styles.label} htmlFor="eventOpportunityNumber">
+                    Event opportunity number
+                  </label>
+                  <input
+                    className={`${styles.input} ${errors.eventOpportunityNumber ? styles.inputError : ''}`}
+                    id="eventOpportunityNumber" type="text"
+                    placeholder="e.g. OPP12345"
+                    maxLength={MAX_OPPORTUNITY_NUMBER_LENGTH}
+                    value={form.eventOpportunityNumber}
+                    onChange={e => setField('eventOpportunityNumber', e.target.value.replace(/[^A-Za-z0-9]/g, ''))}
+                    data-error={!!errors.eventOpportunityNumber}
+                  />
+                  <p className={styles.fieldHint}>Alphanumeric only</p>
+                  <FieldError message={errors.eventOpportunityNumber} show={!!errors.eventOpportunityNumber} />
                 </div>
 
                 <div className={styles.fieldGroup}>
