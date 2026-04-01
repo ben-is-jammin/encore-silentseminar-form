@@ -252,6 +252,7 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
   margin-top: 4px;
+  align-items: stretch;
 }
 
 .leadTimeNote {
@@ -273,6 +274,8 @@
   transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
   position: relative;
   background: var(--white);
+  display: flex;
+  flex-direction: column;
 }
 .equipCard:hover {
   border-color: var(--teal);
@@ -317,7 +320,7 @@
   margin-bottom: 5px;
   padding-right: 22px;
 }
-.equipDesc { font-size: 11px; color: var(--gray-mid); line-height: 1.5; }
+.equipDesc { font-size: 11px; color: var(--gray-mid); line-height: 1.5; flex: 1; }
 .equipLockNote {
   margin-top: 8px;
   font-size: 10px;
@@ -325,6 +328,11 @@
   color: var(--indigo);
   letter-spacing: 0.2px;
   text-transform: uppercase;
+}
+
+.equipCardFooter {
+  min-height: 54px;
+  margin-top: auto;
 }
 
 .equipQty {

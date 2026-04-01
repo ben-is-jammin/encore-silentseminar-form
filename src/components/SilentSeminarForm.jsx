@@ -96,34 +96,38 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, onT
       <div className={styles.equipDesc}>{description}</div>
       {locked && <div className={styles.equipLockNote}>Required minimum of 1</div>}
 
-      {checked && (
-        <div className={styles.equipQty} onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            className={styles.qtyBtn}
-            onClick={() => onQtyChange(Math.max(1, quantity - 1))}
-            aria-label="Decrease quantity"
-          >−</button>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            className={styles.qtyInput}
-            value={rawQty}
-            onChange={(e) => setRawQty(e.target.value.replace(/[^0-9]/g, ''))}
-            onBlur={() => commitQty(rawQty)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitQty(rawQty) } }}
-            aria-label={`Quantity for ${name}`}
-          />
-          <button
-            type="button"
-            className={styles.qtyBtn}
-            onClick={() => onQtyChange(Math.min(MAX_QTY, quantity + 1))}
-            aria-label="Increase quantity"
-          >+</button>
-        </div>
-      )}
-      {checked && <div className={styles.qtyLabel}>units</div>}
+      <div className={styles.equipCardFooter}>
+        {checked ? (
+          <>
+            <div className={styles.equipQty} onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className={styles.qtyBtn}
+                onClick={() => onQtyChange(Math.max(1, quantity - 1))}
+                aria-label="Decrease quantity"
+              >−</button>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className={styles.qtyInput}
+                value={rawQty}
+                onChange={(e) => setRawQty(e.target.value.replace(/[^0-9]/g, ''))}
+                onBlur={() => commitQty(rawQty)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitQty(rawQty) } }}
+                aria-label={`Quantity for ${name}`}
+              />
+              <button
+                type="button"
+                className={styles.qtyBtn}
+                onClick={() => onQtyChange(Math.min(MAX_QTY, quantity + 1))}
+                aria-label="Increase quantity"
+              >+</button>
+            </div>
+            <div className={styles.qtyLabel}>units</div>
+          </>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -196,7 +200,7 @@ function getTotalHeadsets(equipment) {
 }
 
 function getMinLoadInDate(totalHeadsets) {
-  if (totalHeadsets <= 1000) return ''
+  if (totalHeadsets < 1000) return ''
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   d.setDate(d.getDate() + 45)
@@ -222,8 +226,8 @@ function validateDates(form, totalHeadsets, minLoadIn) {
   if (loadOutDate && endDate && loadOutDate < endDate)
     errs.loadOutDate = 'Load-out date must be on or after the event end date.'
 
-  if (totalHeadsets > 1000 && loadInDate && minLoadIn && loadInDate < minLoadIn)
-    errs.loadInDate = `Orders over 1,000 headsets require a 45-day lead time. Earliest allowed load-in: ${formatDateLabel(minLoadIn)}.`
+  if (totalHeadsets >= 1000 && loadInDate && minLoadIn && loadInDate < minLoadIn)
+    errs.loadInDate = `Orders of 1,000 headsets or more require a minimum 45-day lead time. Earliest allowed load-in date: ${formatDateLabel(minLoadIn)}.`
 
   return errs
 }
@@ -671,9 +675,9 @@ export default function SilentSeminarForm() {
                     />
                   ))}
                 </div>
-                {totalHeadsets > 1000 && (
+                {totalHeadsets >= 1000 && (
                   <p className={styles.leadTimeNote}>
-                    <strong>Orders over 1,000 headsets require a minimum 45-day lead time.</strong>{' '}
+                    <strong>Orders of 1,000 headsets or more require a minimum 45-day lead time.</strong>{' '}
                     Earliest allowed load-in date: {formatDateLabel(minLoadIn)}.
                   </p>
                 )}
