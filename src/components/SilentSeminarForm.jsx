@@ -73,9 +73,50 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
     setRawQty(String(clamped))
   }
 
+  if (wide && locked) {
+    return (
+      <div className={`${styles.equipCard} ${styles.equipCardLocked} ${styles.transmitterCard}`}>
+        <div className={styles.transmitterHeader}>
+          <div className={styles.equipIcon}>{icon}</div>
+          <div className={styles.equipName}>{name}</div>
+        </div>
+        <div className={styles.transmitterBody}>
+          <div className={styles.quantityRow}>
+            <button
+              type="button"
+              className={styles.qtyBtn}
+              onClick={() => onQtyChange(Math.max(1, quantity - 1))}
+              aria-label="Decrease quantity"
+            >−</button>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className={styles.qtyInput}
+              value={rawQty}
+              onChange={(e) => setRawQty(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={() => commitQty(rawQty)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitQty(rawQty) } }}
+              aria-label={`Quantity for ${name}`}
+            />
+            <button
+              type="button"
+              className={styles.qtyBtn}
+              onClick={() => onQtyChange(Math.min(MAX_QTY, quantity + 1))}
+              aria-label="Increase quantity"
+            >+</button>
+            <span className={styles.unitLabel} aria-hidden="true">units</span>
+          </div>
+          <div className={styles.equipDesc}>{description}</div>
+          <div className={styles.minimumText}>Required minimum of 1</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
-      className={`${styles.equipCard} ${checked ? styles.equipCardSelected : ''} ${locked ? styles.equipCardLocked : ''} ${wide ? styles.equipCardWide : ''}`}
+      className={`${styles.equipCard} ${checked ? styles.equipCardSelected : ''} ${locked ? styles.equipCardLocked : ''}`}
       role={locked ? undefined : 'button'}
       tabIndex={locked ? undefined : 0}
       onClick={(e) => {
