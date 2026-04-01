@@ -133,16 +133,8 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
               aria-label="Increase quantity"
               tabIndex={checked ? 0 : -1}
             >+</button>
+            <span className={styles.unitLabel} aria-hidden="true">units</span>
           </div>
-          <select
-            className={styles.qtyUnitSelect}
-            aria-label={`Unit type for ${name}`}
-            tabIndex={checked ? 0 : -1}
-            value="units"
-            onChange={() => {}}
-          >
-            <option value="units">units</option>
-          </select>
         </div>
       </div>
     </div>
