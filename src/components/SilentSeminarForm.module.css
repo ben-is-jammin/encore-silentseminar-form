@@ -274,41 +274,48 @@
   min-height: 8px;
 }
 
-.equipCardWide {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 16px;
+.transmitterCard {
   cursor: default;
 }
-.equipCardWide .equipIcon {
-  margin-bottom: 0;
-  flex-shrink: 0;
+.transmitterHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
 }
-.equipCardWide .equipName {
+.transmitterHeader .equipIcon {
+  margin-bottom: 0;
+}
+.transmitterHeader .equipName {
   margin-bottom: 0;
   padding-right: 0;
+  text-align: center;
 }
-.equipCardWide .equipDesc {
-  width: 100%;
-  order: 5;
+.transmitterBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.quantityRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  width: fit-content;
+}
+.quantityRow .qtyInput {
+  width: 48px;
   flex: none;
-  margin-top: 4px;
 }
-.equipCardWide .equipLockNote {
-  order: 6;
-  margin-top: 4px;
-}
-.equipCardWide .equipCardFooter {
-  min-height: auto;
-  margin-top: 0;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.equipCardWide .equipQtyWrap {
-  opacity: 1;
-  visibility: visible;
-  max-height: none;
+.minimumText {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--indigo);
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
 }
 
 .headsetGrid {
