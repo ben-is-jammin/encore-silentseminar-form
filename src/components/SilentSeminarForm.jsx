@@ -97,17 +97,17 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, onT
             className={styles.qtyInput}
             value={quantity}
             min={1}
-            max={999}
+            max={99999}
             onChange={(e) => {
               const v = parseInt(e.target.value, 10)
-              if (!isNaN(v)) onQtyChange(Math.min(999, Math.max(1, v)))
+              if (!isNaN(v)) onQtyChange(Math.min(99999, Math.max(1, v)))
             }}
             aria-label={`Quantity for ${name}`}
           />
           <button
             type="button"
             className={styles.qtyBtn}
-            onClick={() => onQtyChange(Math.min(999, quantity + 1))}
+            onClick={() => onQtyChange(Math.min(99999, quantity + 1))}
             aria-label="Increase quantity"
           >+</button>
         </div>
@@ -131,10 +131,6 @@ const INITIAL_FORM = {
   fullName:           '',
   email:              '',
   phone:              '',
-  billingSame:        true,
-  billingAddress:     '',
-  sgSupport:          '',
-  avSupport:          '',
   notes:              '',
 }
 
@@ -145,17 +141,6 @@ const INITIAL_EQUIPMENT = {
 }
 
 const EQUIPMENT_META = {
-  headset: {
-    name: '45ch Headset',
-    description: 'Headset for Silent Seminar featuring 45 radio frequencies to ensure a clear experience.',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 18v-6a9 9 0 0118 0v6"/>
-        <path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3z"/>
-        <path d="M3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/>
-      </svg>
-    ),
-  },
   transmitter: {
     name: 'TX-50RF Transmitter',
     description: 'Silent Seminar Transmitter with 45 frequencies for better headset coverage in busy expo environments.',
@@ -164,6 +149,17 @@ const EQUIPMENT_META = {
         <circle cx="12" cy="12" r="2"/>
         <path d="M16.24 7.76a6 6 0 010 8.49M7.76 7.76a6 6 0 000 8.49"/>
         <path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
+      </svg>
+    ),
+  },
+  headset: {
+    name: '45ch Headset',
+    description: 'Headset for Silent Seminar featuring 45 radio frequencies to ensure a clear experience.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 18v-6a9 9 0 0118 0v6"/>
+        <path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3z"/>
+        <path d="M3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/>
       </svg>
     ),
   },
@@ -183,7 +179,7 @@ const EQUIPMENT_META = {
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
-function validate(form, equipment, billingSame) {
+function validate(form, equipment) {
   const errors = {}
   const email = form.email.trim()
 
@@ -201,8 +197,6 @@ function validate(form, equipment, billingSame) {
                                      errors.email           = 'Please use your @encoreglobal.com email address.'
   if (form.phone.replace(/\D/g,'').length < 10)
                                      errors.phone           = 'Please enter a valid phone number (at least 10 digits).'
-  if (!billingSame && !form.billingAddress.trim())
-                                     errors.billingAddress  = 'Please enter a billing address.'
 
   if (!equipment.transmitter?.checked || equipment.transmitter.quantity < 1)
                                      errors.equipment       = 'At least one transmitter is required for every order.'
@@ -210,6 +204,19 @@ function validate(form, equipment, billingSame) {
   const anyEquip = Object.values(equipment).some(e => e.checked)
   if (!anyEquip && !errors.equipment)
     errors.equipment = 'Please select at least one piece of equipment.'
+
+  // 45-day lead time for headset orders over 1000
+  const totalHeadsets = (equipment.headset?.checked ? equipment.headset.quantity : 0)
+                      + (equipment.branded?.checked ? equipment.branded.quantity : 0)
+  if (totalHeadsets > 1000 && form.loadInDate) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const loadIn = new Date(form.loadInDate + 'T00:00:00')
+    const diffDays = Math.floor((loadIn - today) / (1000 * 60 * 60 * 24))
+    if (diffDays < 45) {
+      errors.loadInDate = `Orders over 1,000 headsets require a minimum 45-day lead time. Your load-in date must be at least 45 days from today.`
+    }
+  }
 
   return errors
 }
@@ -245,7 +252,7 @@ export default function SilentSeminarForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const errs = validate(form, equipment, form.billingSame)
+    const errs = validate(form, equipment)
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
       const firstErrEl = document.querySelector('[data-error="true"]')
@@ -271,10 +278,6 @@ export default function SilentSeminarForm() {
       full_name:                form.fullName,
       email:                    form.email,
       phone:                    form.phone,
-      billing_same_as_shipping: form.billingSame,
-      billing_address:          form.billingSame ? form.shippingAddress : form.billingAddress,
-      sg_onsite_support:        form.sgSupport,
-      av_support:               form.avSupport,
       notes:                    form.notes,
       equipment:                selectedEquipment,
       submitted_at:             new Date().toISOString(),
@@ -557,74 +560,9 @@ export default function SilentSeminarForm() {
 
               <div className={styles.divider} />
 
-              {/* ── Section 3: Billing Address ── */}
-              <section className={styles.formSection}>
-                <SectionHeading label="Billing address" />
-
-                <label className={styles.checkboxRow} htmlFor="billingSame">
-                  <input
-                    type="checkbox"
-                    id="billingSame"
-                    checked={form.billingSame}
-                    onChange={e => setField('billingSame', e.target.checked)}
-                  />
-                  <span>Billing address is the same as shipping address</span>
-                </label>
-
-                {!form.billingSame && (
-                  <div className={styles.fieldGroup}>
-                    <label className={styles.label} htmlFor="billingAddress">
-                      Billing address <span className={styles.req}>*</span>
-                    </label>
-                    <textarea
-                      className={`${styles.textarea} ${errors.billingAddress ? styles.inputError : ''}`}
-                      id="billingAddress"
-                      placeholder="Street address, city, state, ZIP…"
-                      style={{ minHeight: '72px' }}
-                      value={form.billingAddress}
-                      onChange={e => setField('billingAddress', e.target.value)}
-                      data-error={!!errors.billingAddress}
-                    />
-                    <FieldError message={errors.billingAddress} show={!!errors.billingAddress} />
-                  </div>
-                )}
-              </section>
-
-              <div className={styles.divider} />
-
-              {/* ── Section 4: Additional Information ── */}
+              {/* ── Section 3: Additional Information ── */}
               <section className={styles.formSection}>
                 <SectionHeading label="Additional information" />
-
-                <div className={styles.fieldGroup}>
-                  <label className={styles.label} htmlFor="sgSupport">
-                    Onsite ShowGear technical support
-                  </label>
-                  <select
-                    className={styles.select}
-                    id="sgSupport"
-                    value={form.sgSupport}
-                    onChange={e => setField('sgSupport', e.target.value)}
-                  >
-                    <option value="">No preference / not sure yet</option>
-                    <option value="Yes">Yes, please include onsite support</option>
-                    <option value="No">No, we'll handle onsite</option>
-                  </select>
-                  <p className={styles.fieldHint}>Optional</p>
-                </div>
-
-                <div className={styles.fieldGroup}>
-                  <label className={styles.label} htmlFor="avSupport">
-                    Any additional AV support needed
-                  </label>
-                  <input
-                    className={styles.input}
-                    id="avSupport" type="text"
-                    placeholder="e.g. technician, setup crew, cable management…"
-                    value={form.avSupport}
-                    onChange={e => setField('avSupport', e.target.value)}
-                  />
-                </div>
 
                 <div className={styles.fieldGroup}>
                   <label className={styles.label} htmlFor="notes">
@@ -670,6 +608,13 @@ export default function SilentSeminarForm() {
                     />
                   ))}
                 </div>
+                {((equipment.headset?.checked ? equipment.headset.quantity : 0)
+                  + (equipment.branded?.checked ? equipment.branded.quantity : 0)) > 1000 && (
+                  <p className={styles.leadTimeNote}>
+                    <strong>Orders over 1,000 headsets require a minimum 45-day lead time.</strong>{' '}
+                    Please ensure your load-in date is at least 45 days from today.
+                  </p>
+                )}
                 <FieldError message={errors.equipment} show={!!errors.equipment} />
               </section>
 
