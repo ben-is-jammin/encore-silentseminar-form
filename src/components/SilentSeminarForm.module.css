@@ -249,7 +249,7 @@
 
 .equipGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
   margin-top: 4px;
   align-items: stretch;
@@ -276,6 +276,9 @@
   background: var(--white);
   display: flex;
   flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 .equipCard:hover {
   border-color: var(--teal);
@@ -284,7 +287,8 @@
 .equipCardSelected {
   border-color: var(--indigo);
   background: rgba(27,20,100,0.03);
-  box-shadow: 0 0 0 1px var(--indigo);
+  outline: 1.5px solid var(--indigo);
+  outline-offset: -1.5px;
 }
 .equipCardLocked {
   border-color: var(--indigo);
@@ -362,6 +366,7 @@
 .qtyBtn:hover { background: var(--indigo); color: var(--white); }
 .qtyInput {
   flex: 1;
+  min-width: 0;
   border: none;
   border-left: 1.5px solid var(--border);
   border-right: 1.5px solid var(--border);
@@ -515,4 +520,5 @@
 }
 @media (min-width: 601px) and (max-width: 800px) {
   .row4 { grid-template-columns: 1fr 1fr; }
+  .equipGrid { grid-template-columns: repeat(2, 1fr); }
 }
