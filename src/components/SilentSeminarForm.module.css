@@ -426,7 +426,7 @@
 .equipQtyVisible {
   opacity: 1;
   visibility: visible;
-  max-height: 60px;
+  max-height: 50px;
 }
 
 .equipQty {
@@ -473,32 +473,15 @@
   -webkit-appearance: textfield;
   background: var(--white);
 }
-.qtyUnitSelect {
-  display: block;
-  width: 100%;
-  margin-top: 6px;
-  padding: 4px 28px 4px 8px;
+.unitLabel {
+  margin-left: 8px;
   font-family: var(--font);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--gray-mid);
-  background: var(--white);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A92A6' stroke-width='1.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  outline: none;
-  text-align: center;
-  text-align-last: center;
-  transition: border-color 0.18s, box-shadow 0.18s;
-}
-.qtyUnitSelect:focus {
-  border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(0,181,200,0.13);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-right: 8px;
 }
 
 /* ─── Submit ─── */
