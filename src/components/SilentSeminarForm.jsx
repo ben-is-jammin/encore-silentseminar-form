@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import styles from './SilentSeminarForm.module.css'
 
 // ─── Sub-components ────────────────────────────────────────────────────────
@@ -60,7 +60,19 @@ function encodeBasicAuth(username, password) {
   return `Basic ${btoa(binary)}`
 }
 
+const MAX_QTY = 10000
+
 function EquipCard({ id, name, description, icon, checked, quantity, locked, onToggle, onQtyChange }) {
+  const [rawQty, setRawQty] = useState(String(quantity))
+  useEffect(() => { setRawQty(String(quantity)) }, [quantity])
+
+  const commitQty = (val) => {
+    const parsed = parseInt(val, 10)
+    const clamped = isNaN(parsed) || parsed < 1 ? 1 : Math.min(MAX_QTY, parsed)
+    onQtyChange(clamped)
+    setRawQty(String(clamped))
+  }
+
   return (
     <div
       className={`${styles.equipCard} ${checked ? styles.equipCardSelected : ''} ${locked ? styles.equipCardLocked : ''}`}
@@ -93,21 +105,20 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, onT
             aria-label="Decrease quantity"
           >−</button>
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             className={styles.qtyInput}
-            value={quantity}
-            min={1}
-            max={99999}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (!isNaN(v)) onQtyChange(Math.min(99999, Math.max(1, v)))
-            }}
+            value={rawQty}
+            onChange={(e) => setRawQty(e.target.value.replace(/[^0-9]/g, ''))}
+            onBlur={() => commitQty(rawQty)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitQty(rawQty) } }}
             aria-label={`Quantity for ${name}`}
           />
           <button
             type="button"
             className={styles.qtyBtn}
-            onClick={() => onQtyChange(Math.min(99999, quantity + 1))}
+            onClick={() => onQtyChange(Math.min(MAX_QTY, quantity + 1))}
             aria-label="Increase quantity"
           >+</button>
         </div>
@@ -179,7 +190,45 @@ const EQUIPMENT_META = {
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
-function validate(form, equipment) {
+function getTotalHeadsets(equipment) {
+  return (equipment.headset?.checked ? equipment.headset.quantity : 0)
+       + (equipment.branded?.checked ? equipment.branded.quantity : 0)
+}
+
+function getMinLoadInDate(totalHeadsets) {
+  if (totalHeadsets <= 1000) return ''
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + 45)
+  return d.toISOString().split('T')[0]
+}
+
+function formatDateLabel(isoStr) {
+  if (!isoStr) return ''
+  const [y, m, d] = isoStr.split('-')
+  return `${parseInt(m, 10)}/${parseInt(d, 10)}/${y}`
+}
+
+function validateDates(form, totalHeadsets, minLoadIn) {
+  const errs = {}
+  const { startDate, endDate, loadInDate, loadOutDate } = form
+
+  if (startDate && endDate && startDate > endDate)
+    errs.endDate = 'End date must be on or after the start date.'
+
+  if (loadInDate && startDate && loadInDate > startDate)
+    errs.loadInDate = 'Load-in date must be on or before the event start date.'
+
+  if (loadOutDate && endDate && loadOutDate < endDate)
+    errs.loadOutDate = 'Load-out date must be on or after the event end date.'
+
+  if (totalHeadsets > 1000 && loadInDate && minLoadIn && loadInDate < minLoadIn)
+    errs.loadInDate = `Orders over 1,000 headsets require a 45-day lead time. Earliest allowed load-in: ${formatDateLabel(minLoadIn)}.`
+
+  return errs
+}
+
+function validate(form, equipment, liveErrors) {
   const errors = {}
   const email = form.email.trim()
 
@@ -205,17 +254,9 @@ function validate(form, equipment) {
   if (!anyEquip && !errors.equipment)
     errors.equipment = 'Please select at least one piece of equipment.'
 
-  // 45-day lead time for headset orders over 1000
-  const totalHeadsets = (equipment.headset?.checked ? equipment.headset.quantity : 0)
-                      + (equipment.branded?.checked ? equipment.branded.quantity : 0)
-  if (totalHeadsets > 1000 && form.loadInDate) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const loadIn = new Date(form.loadInDate + 'T00:00:00')
-    const diffDays = Math.floor((loadIn - today) / (1000 * 60 * 60 * 24))
-    if (diffDays < 45) {
-      errors.loadInDate = `Orders over 1,000 headsets require a minimum 45-day lead time. Your load-in date must be at least 45 days from today.`
-    }
+  // Merge live date errors (only where no "Required" error already exists)
+  for (const [key, msg] of Object.entries(liveErrors)) {
+    if (!errors[key]) errors[key] = msg
   }
 
   return errors
@@ -231,6 +272,18 @@ export default function SilentSeminarForm() {
   const [loading, setLoading]     = useState(false)
   const [summary, setSummary]     = useState(null)
 
+  const totalHeadsets = getTotalHeadsets(equipment)
+  const minLoadIn     = getMinLoadInDate(totalHeadsets)
+
+  const liveErrors = useMemo(
+    () => validateDates(form, totalHeadsets, minLoadIn),
+    [form, totalHeadsets, minLoadIn],
+  )
+
+  const dateErrorFor = useCallback((field) => {
+    return errors[field] || liveErrors[field] || ''
+  }, [errors, liveErrors])
+
   const setField = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }))
     setErrors(prev => { const next = { ...prev }; delete next[field]; return next })
@@ -243,16 +296,17 @@ export default function SilentSeminarForm() {
       ...prev,
       [key]: { ...prev[key], checked: !prev[key].checked },
     }))
-    setErrors(prev => { const next = { ...prev }; delete next.equipment; return next })
+    setErrors(prev => { const next = { ...prev }; delete next.equipment; delete next.loadInDate; return next })
   }, [])
 
   const setQty = useCallback((key, qty) => {
     setEquipment(prev => ({ ...prev, [key]: { ...prev[key], quantity: qty } }))
+    setErrors(prev => { const next = { ...prev }; delete next.loadInDate; return next })
   }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const errs = validate(form, equipment)
+    const errs = validate(form, equipment, liveErrors)
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
       const firstErrEl = document.querySelector('[data-error="true"]')
@@ -422,46 +476,55 @@ export default function SilentSeminarForm() {
 
                 <div className={`${styles.fieldGroup} ${styles.row2}`}>
                   {[
-                    { id: 'startDate', label: 'Start date', field: 'startDate', err: errors.startDate },
-                    { id: 'endDate',   label: 'End date',   field: 'endDate',   err: errors.endDate },
-                  ].map(({ id, label, field, err }) => (
-                    <div key={id}>
-                      <label className={styles.label} htmlFor={id}>
-                        {label} <span className={styles.req}>*</span>
-                      </label>
-                      <input
-                        className={`${styles.input} ${err ? styles.inputError : ''}`}
-                        id={id} type="date"
-                        value={form[field]}
-                        onChange={e => setField(field, e.target.value)}
-                        data-error={!!err}
-                      />
-                      <FieldError message={err} show={!!err} />
-                    </div>
-                  ))}
+                    { id: 'startDate', label: 'Start date', field: 'startDate' },
+                    { id: 'endDate',   label: 'End date',   field: 'endDate' },
+                  ].map(({ id, label, field }) => {
+                    const err = dateErrorFor(field)
+                    return (
+                      <div key={id}>
+                        <label className={styles.label} htmlFor={id}>
+                          {label} <span className={styles.req}>*</span>
+                        </label>
+                        <input
+                          className={`${styles.input} ${err ? styles.inputError : ''}`}
+                          id={id} type="date"
+                          value={form[field]}
+                          onChange={e => setField(field, e.target.value)}
+                          data-error={!!err}
+                          aria-invalid={!!err}
+                        />
+                        <FieldError message={err} show={!!err} />
+                      </div>
+                    )
+                  })}
                 </div>
 
                 <p className={styles.fieldNote}>Start date and end date should reflect the event dates.</p>
 
                 <div className={`${styles.fieldGroup} ${styles.row2}`}>
                   {[
-                    { id: 'loadInDate',  label: 'Load-in date',  field: 'loadInDate',  err: errors.loadInDate },
-                    { id: 'loadOutDate', label: 'Load-out date', field: 'loadOutDate', err: errors.loadOutDate },
-                  ].map(({ id, label, field, err }) => (
-                    <div key={id}>
-                      <label className={styles.label} htmlFor={id}>
-                        {label} <span className={styles.req}>*</span>
-                      </label>
-                      <input
-                        className={`${styles.input} ${err ? styles.inputError : ''}`}
-                        id={id} type="date"
-                        value={form[field]}
-                        onChange={e => setField(field, e.target.value)}
-                        data-error={!!err}
-                      />
-                      <FieldError message={err} show={!!err} />
-                    </div>
-                  ))}
+                    { id: 'loadInDate',  label: 'Load-in date',  field: 'loadInDate' },
+                    { id: 'loadOutDate', label: 'Load-out date', field: 'loadOutDate' },
+                  ].map(({ id, label, field }) => {
+                    const err = dateErrorFor(field)
+                    return (
+                      <div key={id}>
+                        <label className={styles.label} htmlFor={id}>
+                          {label} <span className={styles.req}>*</span>
+                        </label>
+                        <input
+                          className={`${styles.input} ${err ? styles.inputError : ''}`}
+                          id={id} type="date"
+                          value={form[field]}
+                          onChange={e => setField(field, e.target.value)}
+                          min={field === 'loadInDate' && minLoadIn ? minLoadIn : undefined}
+                          data-error={!!err}
+                          aria-invalid={!!err}
+                        />
+                        <FieldError message={err} show={!!err} />
+                      </div>
+                    )
+                  })}
                 </div>
 
                 <div className={styles.fieldGroup}>
@@ -608,11 +671,10 @@ export default function SilentSeminarForm() {
                     />
                   ))}
                 </div>
-                {((equipment.headset?.checked ? equipment.headset.quantity : 0)
-                  + (equipment.branded?.checked ? equipment.branded.quantity : 0)) > 1000 && (
+                {totalHeadsets > 1000 && (
                   <p className={styles.leadTimeNote}>
                     <strong>Orders over 1,000 headsets require a minimum 45-day lead time.</strong>{' '}
-                    Please ensure your load-in date is at least 45 days from today.
+                    Earliest allowed load-in date: {formatDateLabel(minLoadIn)}.
                   </p>
                 )}
                 <FieldError message={errors.equipment} show={!!errors.equipment} />
