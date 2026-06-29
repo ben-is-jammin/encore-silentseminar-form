@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import SilentSeminarForm from './SilentSeminarForm'
 import styles from './ShowcasePage.module.css'
 
+const CDN = 'https://sgpro.b-cdn.net/silentSeminars/images'
+
 function DiamondAccent({ color }) {
   const fill = color || 'var(--magenta)'
   return (
@@ -20,20 +22,7 @@ function scrollToForm(e) {
 function Hero() {
   return (
     <section className={styles.hero} aria-labelledby="hero-heading">
-      <div className={styles.heroPixels} aria-hidden="true">
-        <svg viewBox="0 0 400 320" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="280" y="30" width="60" height="60" transform="rotate(45 310 60)" fill="#DA006A" opacity="0.18"/>
-          <rect x="340" y="80" width="40" height="40" transform="rotate(45 360 100)" fill="#00B5C8" opacity="0.14"/>
-          <rect x="20"  y="220" width="50" height="50" transform="rotate(45 45 245)" fill="#7B2D8B" opacity="0.12"/>
-          <rect x="360" y="200" width="30" height="30" transform="rotate(45 375 215)" fill="#F47920" opacity="0.15"/>
-          <rect x="60"  y="40"  width="20" height="20" transform="rotate(45 70 50)"  fill="#0075BF" opacity="0.20"/>
-          <rect x="310" y="160" width="18" height="18" transform="rotate(45 319 169)" fill="#8DC63F" opacity="0.18"/>
-          <rect x="100" y="270" width="16" height="16" transform="rotate(45 108 278)" fill="#DA006A" opacity="0.12"/>
-          <rect x="370" y="260" width="14" height="14" transform="rotate(45 377 267)" fill="#00B5C8" opacity="0.16"/>
-        </svg>
-      </div>
-
-      <div className={styles.heroInner}>
+      <div className={styles.heroContent}>
         <div className={styles.heroEyebrow}>
           <DiamondAccent color="var(--teal)" />
           <span>Silent Seminars by Show Gear</span>
@@ -50,6 +39,16 @@ function Hero() {
         <a href="#order-form" onClick={scrollToForm} className={styles.heroCta}>
           Request a quote
         </a>
+      </div>
+
+      <div className={styles.heroImageWrap} aria-hidden="true">
+        <img
+          src={`${CDN}/audience/image2.jpg`}
+          alt=""
+          className={styles.heroImage}
+          loading="eager"
+        />
+        <div className={styles.heroImageOverlay} />
       </div>
     </section>
   )
@@ -120,6 +119,33 @@ function TheProblem() {
   )
 }
 
+// ─── Section 2.5: Video ───────────────────────────────────────────────────────
+
+function VideoSection() {
+  return (
+    <section className={styles.videoSection} aria-labelledby="video-heading">
+      <div className={styles.videoInner}>
+        <div className={styles.sectionLabel}>
+          <DiamondAccent color="var(--teal)" />
+          <h2 id="video-heading" className={styles.sectionTitle} style={{ color: 'var(--white)' }}>
+            See it in action
+          </h2>
+        </div>
+        <div className={styles.videoWrap}>
+          <iframe
+            className={styles.videoFrame}
+            src="https://www.youtube-nocookie.com/embed/lq1GgSATqGg?rel=0&modestbranding=1"
+            title="Silent Seminars by Show Gear"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            loading="lazy"
+          />
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ─── Section 3: Product specs ─────────────────────────────────────────────────
 
 const SPECS = [
@@ -144,13 +170,29 @@ function ProductSpecs() {
           <DiamondAccent color="var(--blue-bright)" />
           <h2 id="specs-heading" className={styles.sectionTitle}>Technical specifications</h2>
         </div>
-        <div className={styles.specsGrid}>
-          {SPECS.map((s) => (
-            <div key={s.label} className={styles.specItem}>
-              <span className={styles.specLabel}>{s.label}</span>
-              <span className={styles.specValue}>{s.value}</span>
-            </div>
-          ))}
+        <div className={styles.specsLayout}>
+          <div className={styles.specsGrid}>
+            {SPECS.map((s) => (
+              <div key={s.label} className={styles.specItem}>
+                <span className={styles.specLabel}>{s.label}</span>
+                <span className={styles.specValue}>{s.value}</span>
+              </div>
+            ))}
+          </div>
+          <div className={styles.specsImageWrap}>
+            <img
+              src={`${CDN}/product/transmitter.png`}
+              alt="Silent Seminars transmitter unit"
+              className={styles.specsImage}
+              loading="lazy"
+            />
+            <img
+              src={`${CDN}/product/image1.jpg`}
+              alt="Silent Seminars headset"
+              className={styles.specsImage}
+              loading="lazy"
+            />
+          </div>
         </div>
       </div>
     </section>
@@ -221,17 +263,39 @@ function WhyItWorks() {
   )
 }
 
+// ─── Photo strip ──────────────────────────────────────────────────────────────
+
+const STRIP_PHOTOS = [
+  { src: `${CDN}/audience/image1.jpg`, alt: 'Attendees wearing Silent Seminar headsets' },
+  { src: `${CDN}/session/image2.jpg`,  alt: 'Silent session in progress' },
+  { src: `${CDN}/booth/image2.jpg`,    alt: 'Show Gear booth at an event' },
+  { src: `${CDN}/disco/image1.jpg`,    alt: 'Silent disco experience' },
+  { src: `${CDN}/audience/image4.jpg`, alt: 'Conference audience with headsets' },
+]
+
+function PhotoStrip() {
+  return (
+    <div className={styles.photoStrip} aria-hidden="true">
+      {STRIP_PHOTOS.map((p) => (
+        <div key={p.src} className={styles.photoStripItem}>
+          <img src={p.src} alt={p.alt} loading="lazy" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Section 5: Use cases ─────────────────────────────────────────────────────
 
 const USE_CASES = [
-  { label: 'Conferences and breakouts' },
-  { label: 'Trade-show demos' },
-  { label: 'Simultaneous translation' },
-  { label: 'Walking and silent tours' },
-  { label: 'Brand activations' },
-  { label: 'Immersive experiences' },
-  { label: 'Corporate training' },
-  { label: 'Accessible events' },
+  { label: 'Conferences and breakouts', img: `${CDN}/session/image1.jpg` },
+  { label: 'Trade-show demos',          img: `${CDN}/booth/image3.jpg` },
+  { label: 'Simultaneous translation',  img: `${CDN}/session/image3.jpg` },
+  { label: 'Walking and silent tours',  img: `${CDN}/audience/image3.jpg` },
+  { label: 'Brand activations',         img: `${CDN}/booth/image4.jpeg` },
+  { label: 'Immersive experiences',     img: `${CDN}/disco/image2.jpeg` },
+  { label: 'Corporate training',        img: `${CDN}/audience/image5.jpg` },
+  { label: 'Accessible events',         img: `${CDN}/disco/image3.jpeg` },
 ]
 
 function UseCases() {
@@ -245,8 +309,10 @@ function UseCases() {
         <ul className={styles.useCaseGrid} role="list">
           {USE_CASES.map((u) => (
             <li key={u.label} className={styles.useCaseItem}>
-              <span className={styles.useCaseDot} aria-hidden="true" />
-              {u.label}
+              <div className={styles.useCaseImgWrap}>
+                <img src={u.img} alt="" loading="lazy" className={styles.useCaseImg} />
+              </div>
+              <span className={styles.useCaseLabel}>{u.label}</span>
             </li>
           ))}
         </ul>
@@ -398,6 +464,9 @@ function ProvenResults() {
 function ClosingCta() {
   return (
     <section className={styles.closingCta} aria-labelledby="cta-heading">
+      <div className={styles.closingCtaBg} aria-hidden="true">
+        <img src={`${CDN}/audience/image5.jpg`} alt="" loading="lazy" />
+      </div>
       <div className={styles.closingCtaInner}>
         <h2 id="cta-heading" className={styles.closingCtaHeading}>Ready to run your event on headsets?</h2>
         <p className={styles.closingCtaSub}>
@@ -464,8 +533,10 @@ export default function ShowcasePage() {
       <main>
         <Hero />
         <TheProblem />
+        <VideoSection />
         <ProductSpecs />
         <WhyItWorks />
+        <PhotoStrip />
         <UseCases />
         <FullyManaged />
         <ProvenResults />
