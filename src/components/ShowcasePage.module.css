@@ -6,67 +6,33 @@
   background: var(--off-white);
 }
 
-/* ─── Nav header ─── */
-.navHeader {
-  background: var(--indigo);
-  padding: 0 40px;
-  height: 68px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.navPixels {
-  position: absolute;
-  right: 0;
-  top: 0;
-  height: 100%;
-  pointer-events: none;
-}
-.navPixels svg { height: 68px; display: block; }
-
-.navLogoLockup {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  z-index: 1;
-}
-
-.forwardIcon { width: 38px; height: 38px; flex-shrink: 0; }
-
-.navWordmark {
-  font-size: 22px;
-  font-weight: 400;
-  color: var(--white);
-  letter-spacing: -0.5px;
-  line-height: 1;
-}
-.navWordmark sup {
-  font-size: 9px;
-  font-weight: 600;
-  vertical-align: super;
-  margin-left: 1px;
-  color: rgba(255,255,255,0.7);
-}
-
-.navCta {
-  z-index: 1;
+/* ─── Floating CTA ─── */
+.floatingCta {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  z-index: 200;
   background: var(--magenta);
   color: var(--white);
   font-size: 14px;
-  font-weight: 600;
-  padding: 10px 22px;
-  border-radius: var(--radius);
+  font-weight: 700;
+  padding: 11px 24px;
+  border-radius: 100px;
   text-decoration: none;
-  transition: background 0.15s;
-  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(218,0,106,0.35);
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
 }
-.navCta:hover { background: #b3005a; }
+
+.floatingCtaVisible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.floatingCta:hover { background: #b3005a; }
 
 /* ─── Diamond accent ─── */
 .diamondAccent {
@@ -561,7 +527,7 @@
 
 /* ─── Form anchor wrapper ─── */
 .formAnchor {
-  scroll-margin-top: 68px;
+  scroll-margin-top: 0;
   background: var(--off-white);
 }
 
@@ -583,9 +549,6 @@
 
 /* ─── Responsive ─── */
 @media (max-width: 800px) {
-  .navHeader { padding: 0 20px; }
-  .navCta { display: none; }
-
   .hero { padding: 72px 20px 72px; }
 
   .painGrid { grid-template-columns: 1fr; }

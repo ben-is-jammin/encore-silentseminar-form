@@ -1,21 +1,6 @@
+import { useState, useEffect } from 'react'
 import SilentSeminarForm from './SilentSeminarForm'
 import styles from './ShowcasePage.module.css'
-
-// ─── Shared icon sub-components ───────────────────────────────────────────────
-
-function ForwardIcon() {
-  return (
-    <svg className={styles.forwardIcon} viewBox="0 0 38 38" fill="none" aria-hidden="true">
-      <rect x="8" y="8" width="16" height="16" rx="0.5" transform="rotate(45 16 16)" fill="#C41E3A"/>
-      <rect x="20" y="3" width="9" height="9" rx="0.3" transform="rotate(45 24.5 7.5)" fill="#0075BF"/>
-      <rect x="22" y="18" width="8" height="8" rx="0.3" transform="rotate(45 26 22)" fill="#00B5C8"/>
-      <rect x="14" y="24" width="7" height="7" rx="0.3" transform="rotate(45 17.5 27.5)" fill="#F47920"/>
-      <rect x="5" y="18" width="6" height="6" rx="0.3" transform="rotate(45 8 21)" fill="#8DC63F"/>
-      <rect x="3" y="9" width="5" height="5" rx="0.3" transform="rotate(45 5.5 11.5)" fill="#7B2D8B"/>
-      <rect x="23" y="8" width="5" height="5" rx="0.3" transform="rotate(45 25.5 10.5)" fill="#0075BF" opacity="0.6"/>
-    </svg>
-  )
-}
 
 function DiamondAccent({ color }) {
   const fill = color || 'var(--magenta)'
@@ -433,31 +418,26 @@ function ClosingCta() {
   )
 }
 
-// ─── Nav header ───────────────────────────────────────────────────────────────
+// ─── Floating CTA (appears after hero scrolls out) ────────────────────────────
 
-function NavHeader() {
+function FloatingCta() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 480)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   return (
-    <header className={styles.navHeader}>
-      <div className={styles.navPixels} aria-hidden="true">
-        <svg viewBox="0 0 180 68" fill="none">
-          <rect x="128" y="11" width="24" height="24" transform="rotate(45 140 23)" fill="#DA006A" opacity="0.85"/>
-          <rect x="105" y="19" width="17" height="17" transform="rotate(45 113 27)" fill="#7B2D8B" opacity="0.65"/>
-          <rect x="148" y="30" width="15" height="15" transform="rotate(45 155 37)" fill="#00B5C8" opacity="0.75"/>
-          <rect x="94"  y="33" width="11" height="11" transform="rotate(45 99 38)"  fill="#0075BF" opacity="0.45"/>
-          <rect x="160" y="12" width="9"  height="9"  transform="rotate(45 164 16)" fill="#F47920" opacity="0.55"/>
-          <rect x="120" y="42" width="8"  height="8"  transform="rotate(45 124 46)" fill="#8DC63F" opacity="0.5"/>
-        </svg>
-      </div>
-      <div className={styles.navLogoLockup}>
-        <ForwardIcon />
-        <span className={styles.navWordmark}>
-          Show Gear<sup>TM</sup>
-        </span>
-      </div>
-      <a href="#order-form" onClick={scrollToForm} className={styles.navCta}>
-        Request a quote
-      </a>
-    </header>
+    <a
+      href="#order-form"
+      onClick={scrollToForm}
+      className={`${styles.floatingCta} ${visible ? styles.floatingCtaVisible : ''}`}
+      aria-label="Request a quote"
+    >
+      Request a quote
+    </a>
   )
 }
 
@@ -480,7 +460,7 @@ function PageFooter() {
 export default function ShowcasePage() {
   return (
     <div className={styles.page}>
-      <NavHeader />
+      <FloatingCta />
       <main>
         <Hero />
         <TheProblem />
