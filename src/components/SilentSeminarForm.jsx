@@ -325,7 +325,7 @@ function validate(form, equipment, liveErrors) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function SilentSeminarForm() {
+export default function SilentSeminarForm({ embedded = false }) {
   const [form, setForm]           = useState(INITIAL_FORM)
   const [equipment, setEquipment] = useState(INITIAL_EQUIPMENT)
   const [errors, setErrors]       = useState({})
@@ -452,16 +452,18 @@ export default function SilentSeminarForm() {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={embedded ? undefined : styles.page}>
 
       {/* ── Header ── */}
-      <header className={styles.header}>
-        <a className={styles.logoLockup} href="#" aria-label="Encore">
-          <ForwardIcon />
-          <span className={styles.wordmark}>encore<sup>SM</sup></span>
-        </a>
-        <HeaderPixels />
-      </header>
+      {!embedded && (
+        <header className={styles.header}>
+          <a className={styles.logoLockup} href="#" aria-label="Encore">
+            <ForwardIcon />
+            <span className={styles.wordmark}>encore<sup>SM</sup></span>
+          </a>
+          <HeaderPixels />
+        </header>
+      )}
 
       {/* ── Main ── */}
       <main className={styles.main}>
@@ -803,13 +805,15 @@ export default function SilentSeminarForm() {
         </div>
       </main>
 
-      <footer className={styles.footer}>
-        Powered by{' '}
-        <a href="https://showgear.com" target="_blank" rel="noopener noreferrer">
-          ShowGear Productions
-        </a>
-        {' '}·{' '}Silent Seminar order portal for Encore Team Members
-      </footer>
+      {!embedded && (
+        <footer className={styles.footer}>
+          Powered by{' '}
+          <a href="https://showgear.com" target="_blank" rel="noopener noreferrer">
+            ShowGear Productions
+          </a>
+          {' '}·{' '}Silent Seminar order portal for Encore Team Members
+        </footer>
+      )}
     </div>
   )
 }
