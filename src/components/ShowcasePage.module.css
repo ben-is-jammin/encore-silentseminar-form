@@ -215,9 +215,7 @@
 /* ─── Specs ─── */
 .specsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1px;
-  background: var(--border);
+  grid-template-columns: 1fr 1fr;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -225,10 +223,24 @@
 
 .specItem {
   background: var(--white);
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.specItem:nth-child(odd) {
+  border-right: 1px solid var(--border);
+}
+
+.specItem:nth-last-child(-n+2):not(:nth-child(odd) ~ *) {
+  border-bottom: none;
+}
+
+.specItem:last-child,
+.specItem:nth-last-child(2):nth-child(odd) {
+  border-bottom: none;
 }
 
 .specLabel {
@@ -237,12 +249,19 @@
   color: var(--gray-mid);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  padding: 18px 20px;
+  background: var(--gray-light);
+  border-right: 1px solid var(--border);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
 }
 
 .specValue {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--indigo);
+  padding: 18px 20px;
 }
 
 /* ─── Benefits ─── */
@@ -571,6 +590,9 @@
 
   .painGrid { grid-template-columns: 1fr; }
 
+  .specsGrid { grid-template-columns: 1fr; }
+  .specItem:nth-child(odd) { border-right: none; }
+
   .proofStrip { grid-template-columns: repeat(2, 1fr); }
 
   .servicesGrid { grid-template-columns: repeat(2, 1fr); }
@@ -582,6 +604,10 @@
 
 @media (max-width: 600px) {
   .section { padding: 56px 16px; }
+
+  .specsGrid { grid-template-columns: 1fr; }
+  .specItem { grid-template-columns: 140px 1fr; }
+  .specItem:nth-child(odd) { border-right: none; }
 
   .eventsGrid { grid-template-columns: 1fr; }
 
