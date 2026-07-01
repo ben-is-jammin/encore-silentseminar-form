@@ -1,5 +1,5 @@
-import SilentSeminarForm from './components/SilentSeminarForm'
+import ShowcasePage from './components/ShowcasePage'
 
 export default function App() {
-  return <SilentSeminarForm />
+  return <ShowcasePage />
 }
