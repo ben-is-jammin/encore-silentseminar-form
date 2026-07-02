@@ -303,8 +303,8 @@ function validate(form, equipment, liveErrors) {
   if (!form.fullName.trim())         errors.fullName        = 'Please enter your full name.'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
                                      errors.email           = 'Please enter a valid email address.'
-  else if (!/@encoreglobal\.com$/i.test(email))
-                                     errors.email           = 'Please use your @encoreglobal.com email address.'
+  else if (!/@(encoreglobal|showgear)\.com$/i.test(email))
+                                     errors.email           = 'Please use your @encoreglobal.com or @showgear.com email address.'
   if (form.phone.replace(/\D/g,'').length < 10)
                                      errors.phone           = 'Please enter a valid phone number (at least 10 digits).'
 
@@ -681,7 +681,7 @@ export default function SilentSeminarForm({ embedded = false }) {
                       onChange={e => setField('email', e.target.value)}
                       data-error={!!errors.email}
                     />
-                    <p className={styles.fieldHint}>Use your @encoreglobal.com email address.</p>
+                    <p className={styles.fieldHint}>Use your @encoreglobal.com or @showgear.com email address.</p>
                     <FieldError message={errors.email} show={!!errors.email} />
                   </div>
                   <div>
