@@ -379,17 +379,6 @@ const EVENTS = [
     ],
   },
   {
-    name: 'International Confex & Event Production Show 2026',
-    venue: 'ExCeL London',
-    date: '26 to 27 Feb 2026',
-    stats: [
-      { value: 'TBC', label: 'headsets', tbc: true },
-      { value: '16', label: 'theatres' },
-      { value: '2', label: 'show halls' },
-      { value: '2', label: 'show days' },
-    ],
-  },
-  {
     name: 'ESC Congress 2025',
     venue: 'Battersea Evolution',
     date: 'Apr 2025',
@@ -405,7 +394,7 @@ const PROOF_STATS = [
   { value: '80', label: 'stages and theatres simultaneously' },
   { value: '0', label: 'audio clashes reported' },
   { value: '100%', label: 'on-site supported deliveries' },
-  { value: 'TBC', label: 'total headsets deployed', tbc: true },
+  { value: '20,000+', label: 'total headsets deployed' },
 ]
 
 function ProvenResults() {
