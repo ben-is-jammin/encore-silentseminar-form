@@ -535,9 +535,54 @@
   font-style: italic;
   color: var(--gray-mid);
 }
+.summaryShippingStale {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--orange, #d97706);
+}
 .summaryTotalLine { padding-top: 10px; }
 .summaryTotalLabel { font-size: 13px; font-weight: 700; color: var(--indigo); }
 .summaryTotalValue { font-size: 16px; font-weight: 700; color: var(--indigo); }
+
+.calcShippingRow { margin-top: 14px; }
+.calcShippingBtn {
+  width: 100%;
+  padding: 12px 22px;
+  background: none;
+  border: 1.5px solid var(--indigo);
+  color: var(--indigo);
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+.calcShippingBtn:hover:not(:disabled) { background: var(--indigo); color: var(--white); }
+.calcShippingBtn:disabled { border-color: var(--gray-mid); color: var(--gray-mid); cursor: wait; }
+
+.dropShipNote {
+  margin-top: 10px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--indigo);
+  background: rgba(27,20,100,0.05);
+  border: 1px solid rgba(27,20,100,0.15);
+  border-radius: 6px;
+}
+.staleHint {
+  margin-top: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--orange, #d97706);
+}
+.submitHint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--gray-mid);
+}
 
 /* ─── Submit ─── */
 .submitWrap { margin-top: 32px; }

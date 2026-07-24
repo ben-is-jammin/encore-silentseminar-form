@@ -61,6 +61,8 @@ function encodeBasicAuth(username, password) {
 }
 
 const MAX_QTY = 10000
+const DROP_SHIP_THRESHOLD = 250
+const ZIP_RE = /^\d{5}(-\d{4})?$/
 
 function formatUSD(amount) {
   return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -201,6 +203,7 @@ const INITIAL_FORM = {
   loadInDate:             '',
   loadOutDate:            '',
   shippingType:           '',
+  shippingZip:            '',
   shippingAddress:        '',
   fullName:               '',
   email:                  '',
@@ -308,6 +311,8 @@ function validate(form, equipment, liveErrors) {
   if (!form.loadInDate)              errors.loadInDate      = 'Required.'
   if (!form.loadOutDate)             errors.loadOutDate     = 'Required.'
   if (!form.shippingType)            errors.shippingType    = 'Please select an address type.'
+  if (!ZIP_RE.test(form.shippingZip.trim()))
+                                     errors.shippingZip     = 'Please enter a valid 5-digit ZIP code.'
   if (!form.shippingAddress.trim())  errors.shippingAddress = 'Please enter a shipping address.'
   if (!form.fullName.trim())         errors.fullName        = 'Please enter your full name.'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -342,6 +347,12 @@ export default function SilentSeminarForm({ embedded = false }) {
   const [loading, setLoading]     = useState(false)
   const [summary, setSummary]     = useState(null)
 
+  // Shipping estimate — a quote is tied to the exact ZIP + equipment selection
+  // it was calculated for (the "signature"); any change makes it stale.
+  const [shippingQuote, setShippingQuote]   = useState(null)
+  const [shippingStatus, setShippingStatus] = useState('idle') // idle | loading | done | error
+  const [shippingError, setShippingError]   = useState(null)
+
   const totalHeadsets = getTotalHeadsets(equipment)
   const minLoadIn     = getMinLoadInDate(totalHeadsets)
 
@@ -358,6 +369,14 @@ export default function SilentSeminarForm({ embedded = false }) {
     [equipment])
 
   const equipmentSubtotal = orderLines.reduce((sum, line) => sum + line.lineTotal, 0)
+
+  const quoteSignature = useMemo(
+    () => `${form.shippingZip.trim()}|${orderLines.map(l => `${l.key}:${l.quantity}`).join(',')}`,
+    [form.shippingZip, orderLines],
+  )
+  const quoteIsCurrent   = shippingStatus === 'done' && shippingQuote?.signature === quoteSignature
+  const shippingIncluded = quoteIsCurrent && !shippingQuote.dropShip && typeof shippingQuote.amount === 'number'
+  const estimatedTotal   = equipmentSubtotal + (shippingIncluded ? shippingQuote.amount : 0)
 
   const liveErrors = useMemo(
     () => validateDates(form, totalHeadsets, minLoadIn),
@@ -388,8 +407,84 @@ export default function SilentSeminarForm({ embedded = false }) {
     setErrors(prev => { const next = { ...prev }; delete next.loadInDate; return next })
   }, [])
 
+  const handleCalculateShipping = async () => {
+    const zip = form.shippingZip.trim()
+    if (!ZIP_RE.test(zip)) {
+      setErrors(prev => ({ ...prev, shippingZip: 'Enter a valid ZIP code to calculate shipping.' }))
+      document.getElementById('shippingZip')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+
+    const signature = quoteSignature
+    setShippingStatus('loading')
+    setShippingError(null)
+
+    try {
+      // Orders past the drop-ship threshold never get a parcel rate — resolve
+      // locally without hitting the webhook. The workflow enforces this too.
+      if (totalHeadsets > DROP_SHIP_THRESHOLD) {
+        setShippingQuote({
+          signature,
+          dropShip: true,
+          amount: null,
+          message: `Orders over ${DROP_SHIP_THRESHOLD} headsets are drop shipped. ShowGear will quote shipping with your official quote.`,
+        })
+        setShippingStatus('done')
+        return
+      }
+
+      const webhookUrl = import.meta.env.VITE_SHIPPING_WEBHOOK_URL
+      let data
+
+      if (webhookUrl) {
+        const res = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            destination_zip: zip,
+            quote_signature: signature,
+            equipment: orderLines.map(l => ({ key: l.key, name: l.name, quantity: l.quantity })),
+          }),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        data = await res.json()
+        if (data.status !== 'ok') throw new Error(data.error || 'Shipping calculation failed')
+      } else {
+        // Dev mode — simulate a round-trip estimate
+        await new Promise(r => setTimeout(r, 900))
+        const cases = Math.ceil(totalHeadsets / 25)
+        const transmitters = equipment.transmitter.quantity
+        data = {
+          status: 'ok',
+          drop_ship: false,
+          service: 'Demo estimate',
+          currency: 'USD',
+          round_trip: true,
+          estimated_shipping: (cases * 45 + transmitters * 25) * 2,
+          quote_signature: signature,
+        }
+      }
+
+      setShippingQuote({
+        signature: data.quote_signature || signature,
+        dropShip: !!data.drop_ship,
+        amount: typeof data.estimated_shipping === 'number' ? data.estimated_shipping : null,
+        service: data.service || null,
+        currency: data.currency || 'USD',
+        roundTrip: data.round_trip !== false,
+        message: data.message || null,
+      })
+      setShippingStatus('done')
+    } catch (err) {
+      console.error(err)
+      setShippingError('Could not calculate shipping. Please try again or contact ShowGear directly.')
+      setShippingStatus('error')
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!quoteIsCurrent) return
     const errs = validate(form, equipment, liveErrors)
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
@@ -416,6 +511,7 @@ export default function SilentSeminarForm({ embedded = false }) {
       load_in_date:             form.loadInDate,
       load_out_date:            form.loadOutDate,
       shipping_address_type:    form.shippingType,
+      shipping_zip:             form.shippingZip.trim(),
       shipping_address:         form.shippingAddress,
       full_name:                form.fullName,
       email:                    form.email,
@@ -423,6 +519,14 @@ export default function SilentSeminarForm({ embedded = false }) {
       notes:                    form.notes,
       equipment:                selectedEquipment,
       equipment_subtotal:       equipmentSubtotal,
+      shipping_estimate: {
+        drop_ship:  shippingQuote.dropShip,
+        amount:     shippingQuote.amount,
+        currency:   shippingQuote.currency || 'USD',
+        service:    shippingQuote.service || null,
+        round_trip: shippingQuote.roundTrip !== false,
+      },
+      estimated_total:          estimatedTotal,
       submitted_at:             new Date().toISOString(),
       source:                   'encore-silent-seminar-portal',
     }
@@ -457,7 +561,12 @@ export default function SilentSeminarForm({ embedded = false }) {
         dates:      `${payload.start_date} to ${payload.end_date}`,
         shipping:   `${payload.shipping_address_type} — ${payload.shipping_address.split('\n')[0]}`,
         equipment:  selectedEquipment.map(e => `${e.quantity}x ${e.item}`).join(', '),
-        total:      `Estimated equipment total: ${formatUSD(equipmentSubtotal)} (excludes shipping)`,
+        shippingCost: shippingQuote.dropShip
+          ? 'Shipping: drop ship — quoted separately by ShowGear'
+          : `Estimated shipping (round trip): ${formatUSD(shippingQuote.amount)}`,
+        total: shippingQuote.dropShip
+          ? `Estimated total: ${formatUSD(estimatedTotal)} (excludes drop-ship freight)`
+          : `Estimated total: ${formatUSD(estimatedTotal)}`,
       })
       setSubmitted(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -476,6 +585,9 @@ export default function SilentSeminarForm({ embedded = false }) {
     setErrors({})
     setSummary(null)
     setSubmitted(false)
+    setShippingQuote(null)
+    setShippingStatus('idle')
+    setShippingError(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -637,23 +749,42 @@ export default function SilentSeminarForm({ embedded = false }) {
                   })}
                 </div>
 
-                <div className={styles.fieldGroup}>
-                  <label className={styles.label} htmlFor="shippingType">
-                    Shipping address type <span className={styles.req}>*</span>
-                  </label>
-                  <select
-                    className={`${styles.select} ${errors.shippingType ? styles.inputError : ''}`}
-                    id="shippingType"
-                    value={form.shippingType}
-                    onChange={e => setField('shippingType', e.target.value)}
-                    data-error={!!errors.shippingType}
-                  >
-                    <option value="" disabled>Select address type</option>
-                    <option value="Venue">Venue</option>
-                    <option value="Preferred AV Vendor">Preferred AV Vendor</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  <FieldError message={errors.shippingType} show={!!errors.shippingType} />
+                <div className={`${styles.fieldGroup} ${styles.row2}`}>
+                  <div>
+                    <label className={styles.label} htmlFor="shippingType">
+                      Shipping address type <span className={styles.req}>*</span>
+                    </label>
+                    <select
+                      className={`${styles.select} ${errors.shippingType ? styles.inputError : ''}`}
+                      id="shippingType"
+                      value={form.shippingType}
+                      onChange={e => setField('shippingType', e.target.value)}
+                      data-error={!!errors.shippingType}
+                    >
+                      <option value="" disabled>Select address type</option>
+                      <option value="Venue">Venue</option>
+                      <option value="Preferred AV Vendor">Preferred AV Vendor</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <FieldError message={errors.shippingType} show={!!errors.shippingType} />
+                  </div>
+                  <div>
+                    <label className={styles.label} htmlFor="shippingZip">
+                      Shipping ZIP code <span className={styles.req}>*</span>
+                    </label>
+                    <input
+                      className={`${styles.input} ${errors.shippingZip ? styles.inputError : ''}`}
+                      id="shippingZip" type="text"
+                      inputMode="numeric"
+                      placeholder="e.g. 80202"
+                      maxLength={10}
+                      value={form.shippingZip}
+                      onChange={e => setField('shippingZip', e.target.value.replace(/[^0-9-]/g, ''))}
+                      data-error={!!errors.shippingZip}
+                    />
+                    <p className={styles.fieldHint}>Used to calculate estimated shipping</p>
+                    <FieldError message={errors.shippingZip} show={!!errors.shippingZip} />
+                  </div>
                 </div>
 
                 <div className={styles.fieldGroup}>
@@ -839,18 +970,65 @@ export default function SilentSeminarForm({ embedded = false }) {
                   <div className={styles.summaryDivider} />
 
                   <div className={styles.summaryLine}>
-                    <span className={styles.summaryLabel}>Shipping</span>
-                    <span className={styles.summaryShipping}>Quoted separately</span>
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Shipping</span>
+                      {shippingIncluded && (
+                        <span className={styles.summaryItemDetail}>
+                          Round trip{shippingQuote.service ? ` · ${shippingQuote.service}` : ''}
+                        </span>
+                      )}
+                    </div>
+                    {shippingStatus === 'loading' ? (
+                      <span className={styles.summaryShipping}>Calculating…</span>
+                    ) : quoteIsCurrent && shippingQuote.dropShip ? (
+                      <span className={styles.summaryShipping}>Drop ship — quoted separately</span>
+                    ) : shippingIncluded ? (
+                      <span className={styles.summaryItemTotal}>{formatUSD(shippingQuote.amount)}</span>
+                    ) : shippingQuote || shippingStatus === 'error' ? (
+                      <span className={styles.summaryShippingStale}>Recalculation needed</span>
+                    ) : (
+                      <span className={styles.summaryShipping}>Not yet calculated</span>
+                    )}
                   </div>
 
                   <div className={`${styles.summaryLine} ${styles.summaryTotalLine}`}>
-                    <span className={styles.summaryTotalLabel}>Estimated equipment total</span>
-                    <span className={styles.summaryTotalValue}>{formatUSD(equipmentSubtotal)}</span>
+                    <span className={styles.summaryTotalLabel}>
+                      {shippingIncluded ? 'Estimated total' : 'Estimated equipment total'}
+                    </span>
+                    <span className={styles.summaryTotalValue}>{formatUSD(estimatedTotal)}</span>
                   </div>
                 </div>
 
+                <div className={styles.calcShippingRow}>
+                  <button
+                    type="button"
+                    className={styles.calcShippingBtn}
+                    onClick={handleCalculateShipping}
+                    disabled={shippingStatus === 'loading'}
+                  >
+                    {shippingStatus === 'loading'
+                      ? 'Calculating…'
+                      : shippingQuote && !quoteIsCurrent
+                        ? 'Recalculate estimated shipping'
+                        : 'Calculate estimated shipping'}
+                  </button>
+                  {shippingError && shippingStatus === 'error' && (
+                    <p className={styles.fieldError}>{shippingError}</p>
+                  )}
+                  {quoteIsCurrent && shippingQuote.dropShip && (
+                    <p className={styles.dropShipNote}>
+                      {shippingQuote.message || `Orders over ${DROP_SHIP_THRESHOLD} headsets are drop shipped. ShowGear will quote shipping with your official quote.`}
+                    </p>
+                  )}
+                  {shippingQuote && !quoteIsCurrent && shippingStatus !== 'loading' && shippingStatus !== 'error' && (
+                    <p className={styles.staleHint}>
+                      Your selections changed — recalculate shipping before submitting.
+                    </p>
+                  )}
+                </div>
+
                 <p className={styles.fieldHint}>
-                  Pricing shown is an estimate and excludes shipping. Final pricing will be confirmed on your official quote.
+                  Pricing shown is an estimate. Final pricing will be confirmed on your official quote.
                 </p>
               </section>
 
@@ -859,10 +1037,15 @@ export default function SilentSeminarForm({ embedded = false }) {
                 <button
                   type="submit"
                   className={styles.submitBtn}
-                  disabled={loading}
+                  disabled={loading || !quoteIsCurrent}
                 >
                   {loading ? <span className={styles.spinner} aria-hidden="true" /> : 'Submit order'}
                 </button>
+                {!quoteIsCurrent && (
+                  <p className={styles.submitHint}>
+                    Calculate estimated shipping above to enable submission.
+                  </p>
+                )}
               </div>
 
             </form>
