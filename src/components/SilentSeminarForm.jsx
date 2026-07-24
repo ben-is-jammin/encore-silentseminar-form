@@ -567,11 +567,11 @@ export default function SilentSeminarForm({ embedded = false }) {
         dates:      `${payload.start_date} to ${payload.end_date}`,
         shipping:   `${payload.shipping_address_type} — ${payload.shipping_address.split('\n')[0]}`,
         equipment:  selectedEquipment.map(e => `${e.quantity}x ${e.item}`).join(', '),
-        ...(SHIPPING_CALCULATOR_ENABLED && shippingQuote && {
-          shippingCost: shippingQuote.dropShip
-            ? 'Shipping: drop ship — quoted separately by ShowGear'
-            : `Estimated shipping (round trip): ${formatUSD(shippingQuote.amount)}`,
-        }),
+        shippingCost: SHIPPING_CALCULATOR_ENABLED && shippingQuote
+          ? (shippingQuote.dropShip
+              ? 'Shipping: drop ship — quoted separately by ShowGear'
+              : `Estimated shipping (round trip): ${formatUSD(shippingQuote.amount)}`)
+          : 'Shipping costs will be calculated for your invoice',
         total: SHIPPING_CALCULATOR_ENABLED && shippingQuote && !shippingQuote.dropShip
           ? `Estimated total: ${formatUSD(estimatedTotal)}`
           : `Estimated equipment total: ${formatUSD(estimatedTotal)} (excludes shipping)`,
@@ -989,7 +989,7 @@ export default function SilentSeminarForm({ embedded = false }) {
                       )}
                     </div>
                     {!SHIPPING_CALCULATOR_ENABLED ? (
-                      <span className={styles.summaryShipping}>Quoted separately</span>
+                      <span className={styles.summaryShipping}>Calculated for your invoice</span>
                     ) : shippingStatus === 'loading' ? (
                       <span className={styles.summaryShipping}>Calculating…</span>
                     ) : quoteIsCurrent && shippingQuote.dropShip ? (
@@ -1010,6 +1010,12 @@ export default function SilentSeminarForm({ embedded = false }) {
                     <span className={styles.summaryTotalValue}>{formatUSD(estimatedTotal)}</span>
                   </div>
                 </div>
+
+                {!SHIPPING_CALCULATOR_ENABLED && (
+                  <p className={styles.dropShipNote}>
+                    Shipping costs will be calculated and included on your invoice.
+                  </p>
+                )}
 
                 {SHIPPING_CALCULATOR_ENABLED && (
                   <div className={styles.calcShippingRow}>
