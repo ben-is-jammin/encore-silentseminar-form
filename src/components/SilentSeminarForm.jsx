@@ -64,6 +64,11 @@ const MAX_QTY = 10000
 const DROP_SHIP_THRESHOLD = 250
 const ZIP_RE = /^\d{5}(-\d{4})?$/
 
+// The shipping calculator is fully built (ZIP field, calculate button, FedEx
+// n8n workflow) but hidden pending a team decision on how shipping is actually
+// handled. Set VITE_ENABLE_SHIPPING_CALCULATOR=true to turn it back on.
+const SHIPPING_CALCULATOR_ENABLED = import.meta.env.VITE_ENABLE_SHIPPING_CALCULATOR === 'true'
+
 function formatUSD(amount) {
   return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -311,7 +316,7 @@ function validate(form, equipment, liveErrors) {
   if (!form.loadInDate)              errors.loadInDate      = 'Required.'
   if (!form.loadOutDate)             errors.loadOutDate     = 'Required.'
   if (!form.shippingType)            errors.shippingType    = 'Please select an address type.'
-  if (!ZIP_RE.test(form.shippingZip.trim()))
+  if (SHIPPING_CALCULATOR_ENABLED && !ZIP_RE.test(form.shippingZip.trim()))
                                      errors.shippingZip     = 'Please enter a valid 5-digit ZIP code.'
   if (!form.shippingAddress.trim())  errors.shippingAddress = 'Please enter a shipping address.'
   if (!form.fullName.trim())         errors.fullName        = 'Please enter your full name.'
@@ -377,6 +382,7 @@ export default function SilentSeminarForm({ embedded = false }) {
   const quoteIsCurrent   = shippingStatus === 'done' && shippingQuote?.signature === quoteSignature
   const shippingIncluded = quoteIsCurrent && !shippingQuote.dropShip && typeof shippingQuote.amount === 'number'
   const estimatedTotal   = equipmentSubtotal + (shippingIncluded ? shippingQuote.amount : 0)
+  const canSubmit        = !SHIPPING_CALCULATOR_ENABLED || quoteIsCurrent
 
   const liveErrors = useMemo(
     () => validateDates(form, totalHeadsets, minLoadIn),
@@ -484,7 +490,7 @@ export default function SilentSeminarForm({ embedded = false }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!quoteIsCurrent) return
+    if (!canSubmit) return
     const errs = validate(form, equipment, liveErrors)
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
@@ -519,13 +525,13 @@ export default function SilentSeminarForm({ embedded = false }) {
       notes:                    form.notes,
       equipment:                selectedEquipment,
       equipment_subtotal:       equipmentSubtotal,
-      shipping_estimate: {
+      shipping_estimate: SHIPPING_CALCULATOR_ENABLED && shippingQuote ? {
         drop_ship:  shippingQuote.dropShip,
         amount:     shippingQuote.amount,
         currency:   shippingQuote.currency || 'USD',
         service:    shippingQuote.service || null,
         round_trip: shippingQuote.roundTrip !== false,
-      },
+      } : null,
       estimated_total:          estimatedTotal,
       submitted_at:             new Date().toISOString(),
       source:                   'encore-silent-seminar-portal',
@@ -561,12 +567,14 @@ export default function SilentSeminarForm({ embedded = false }) {
         dates:      `${payload.start_date} to ${payload.end_date}`,
         shipping:   `${payload.shipping_address_type} — ${payload.shipping_address.split('\n')[0]}`,
         equipment:  selectedEquipment.map(e => `${e.quantity}x ${e.item}`).join(', '),
-        shippingCost: shippingQuote.dropShip
-          ? 'Shipping: drop ship — quoted separately by ShowGear'
-          : `Estimated shipping (round trip): ${formatUSD(shippingQuote.amount)}`,
-        total: shippingQuote.dropShip
-          ? `Estimated total: ${formatUSD(estimatedTotal)} (excludes drop-ship freight)`
-          : `Estimated total: ${formatUSD(estimatedTotal)}`,
+        ...(SHIPPING_CALCULATOR_ENABLED && shippingQuote && {
+          shippingCost: shippingQuote.dropShip
+            ? 'Shipping: drop ship — quoted separately by ShowGear'
+            : `Estimated shipping (round trip): ${formatUSD(shippingQuote.amount)}`,
+        }),
+        total: SHIPPING_CALCULATOR_ENABLED && shippingQuote && !shippingQuote.dropShip
+          ? `Estimated total: ${formatUSD(estimatedTotal)}`
+          : `Estimated equipment total: ${formatUSD(estimatedTotal)} (excludes shipping)`,
       })
       setSubmitted(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -749,7 +757,7 @@ export default function SilentSeminarForm({ embedded = false }) {
                   })}
                 </div>
 
-                <div className={`${styles.fieldGroup} ${styles.row2}`}>
+                <div className={`${styles.fieldGroup} ${SHIPPING_CALCULATOR_ENABLED ? styles.row2 : ''}`}>
                   <div>
                     <label className={styles.label} htmlFor="shippingType">
                       Shipping address type <span className={styles.req}>*</span>
@@ -768,23 +776,25 @@ export default function SilentSeminarForm({ embedded = false }) {
                     </select>
                     <FieldError message={errors.shippingType} show={!!errors.shippingType} />
                   </div>
-                  <div>
-                    <label className={styles.label} htmlFor="shippingZip">
-                      Shipping ZIP code <span className={styles.req}>*</span>
-                    </label>
-                    <input
-                      className={`${styles.input} ${errors.shippingZip ? styles.inputError : ''}`}
-                      id="shippingZip" type="text"
-                      inputMode="numeric"
-                      placeholder="e.g. 80202"
-                      maxLength={10}
-                      value={form.shippingZip}
-                      onChange={e => setField('shippingZip', e.target.value.replace(/[^0-9-]/g, ''))}
-                      data-error={!!errors.shippingZip}
-                    />
-                    <p className={styles.fieldHint}>Used to calculate estimated shipping</p>
-                    <FieldError message={errors.shippingZip} show={!!errors.shippingZip} />
-                  </div>
+                  {SHIPPING_CALCULATOR_ENABLED && (
+                    <div>
+                      <label className={styles.label} htmlFor="shippingZip">
+                        Shipping ZIP code <span className={styles.req}>*</span>
+                      </label>
+                      <input
+                        className={`${styles.input} ${errors.shippingZip ? styles.inputError : ''}`}
+                        id="shippingZip" type="text"
+                        inputMode="numeric"
+                        placeholder="e.g. 80202"
+                        maxLength={10}
+                        value={form.shippingZip}
+                        onChange={e => setField('shippingZip', e.target.value.replace(/[^0-9-]/g, ''))}
+                        data-error={!!errors.shippingZip}
+                      />
+                      <p className={styles.fieldHint}>Used to calculate estimated shipping</p>
+                      <FieldError message={errors.shippingZip} show={!!errors.shippingZip} />
+                    </div>
+                  )}
                 </div>
 
                 <div className={styles.fieldGroup}>
@@ -978,7 +988,9 @@ export default function SilentSeminarForm({ embedded = false }) {
                         </span>
                       )}
                     </div>
-                    {shippingStatus === 'loading' ? (
+                    {!SHIPPING_CALCULATOR_ENABLED ? (
+                      <span className={styles.summaryShipping}>Quoted separately</span>
+                    ) : shippingStatus === 'loading' ? (
                       <span className={styles.summaryShipping}>Calculating…</span>
                     ) : quoteIsCurrent && shippingQuote.dropShip ? (
                       <span className={styles.summaryShipping}>Drop ship — quoted separately</span>
@@ -999,36 +1011,40 @@ export default function SilentSeminarForm({ embedded = false }) {
                   </div>
                 </div>
 
-                <div className={styles.calcShippingRow}>
-                  <button
-                    type="button"
-                    className={styles.calcShippingBtn}
-                    onClick={handleCalculateShipping}
-                    disabled={shippingStatus === 'loading'}
-                  >
-                    {shippingStatus === 'loading'
-                      ? 'Calculating…'
-                      : shippingQuote && !quoteIsCurrent
-                        ? 'Recalculate estimated shipping'
-                        : 'Calculate estimated shipping'}
-                  </button>
-                  {shippingError && shippingStatus === 'error' && (
-                    <p className={styles.fieldError}>{shippingError}</p>
-                  )}
-                  {quoteIsCurrent && shippingQuote.dropShip && (
-                    <p className={styles.dropShipNote}>
-                      {shippingQuote.message || `Orders over ${DROP_SHIP_THRESHOLD} headsets are drop shipped. ShowGear will quote shipping with your official quote.`}
-                    </p>
-                  )}
-                  {shippingQuote && !quoteIsCurrent && shippingStatus !== 'loading' && shippingStatus !== 'error' && (
-                    <p className={styles.staleHint}>
-                      Your selections changed — recalculate shipping before submitting.
-                    </p>
-                  )}
-                </div>
+                {SHIPPING_CALCULATOR_ENABLED && (
+                  <div className={styles.calcShippingRow}>
+                    <button
+                      type="button"
+                      className={styles.calcShippingBtn}
+                      onClick={handleCalculateShipping}
+                      disabled={shippingStatus === 'loading'}
+                    >
+                      {shippingStatus === 'loading'
+                        ? 'Calculating…'
+                        : shippingQuote && !quoteIsCurrent
+                          ? 'Recalculate estimated shipping'
+                          : 'Calculate estimated shipping'}
+                    </button>
+                    {shippingError && shippingStatus === 'error' && (
+                      <p className={styles.fieldError}>{shippingError}</p>
+                    )}
+                    {quoteIsCurrent && shippingQuote.dropShip && (
+                      <p className={styles.dropShipNote}>
+                        {shippingQuote.message || `Orders over ${DROP_SHIP_THRESHOLD} headsets are drop shipped. ShowGear will quote shipping with your official quote.`}
+                      </p>
+                    )}
+                    {shippingQuote && !quoteIsCurrent && shippingStatus !== 'loading' && shippingStatus !== 'error' && (
+                      <p className={styles.staleHint}>
+                        Your selections changed — recalculate shipping before submitting.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <p className={styles.fieldHint}>
-                  Pricing shown is an estimate. Final pricing will be confirmed on your official quote.
+                  {SHIPPING_CALCULATOR_ENABLED
+                    ? 'Pricing shown is an estimate. Final pricing will be confirmed on your official quote.'
+                    : 'Pricing shown is an estimate and excludes shipping. Final pricing will be confirmed on your official quote.'}
                 </p>
               </section>
 
@@ -1037,11 +1053,11 @@ export default function SilentSeminarForm({ embedded = false }) {
                 <button
                   type="submit"
                   className={styles.submitBtn}
-                  disabled={loading || !quoteIsCurrent}
+                  disabled={loading || !canSubmit}
                 >
                   {loading ? <span className={styles.spinner} aria-hidden="true" /> : 'Submit order'}
                 </button>
-                {!quoteIsCurrent && (
+                {!canSubmit && (
                   <p className={styles.submitHint}>
                     Calculate estimated shipping above to enable submission.
                   </p>
