@@ -62,7 +62,11 @@ function encodeBasicAuth(username, password) {
 
 const MAX_QTY = 10000
 
-function EquipCard({ id, name, description, icon, checked, quantity, locked, wide, onToggle, onQtyChange }) {
+function formatUSD(amount) {
+  return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function EquipCard({ id, name, description, icon, unitPrice, checked, quantity, locked, wide, onToggle, onQtyChange }) {
   const [rawQty, setRawQty] = useState(String(quantity))
   useEffect(() => { setRawQty(String(quantity)) }, [quantity])
 
@@ -79,6 +83,7 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
         <div className={styles.transmitterHeader}>
           <div className={styles.equipIcon}>{icon}</div>
           <div className={styles.equipName}>{name}</div>
+          <div className={styles.equipPrice}>${unitPrice} per unit</div>
         </div>
         <div className={styles.transmitterBody}>
           <div className={styles.quantityRow}>
@@ -142,6 +147,7 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
       )}
       <div className={styles.equipIcon}>{icon}</div>
       <div className={styles.equipName}>{name}</div>
+      <div className={styles.equipPrice}>${unitPrice} per unit</div>
       <div className={styles.equipDesc}>{description}</div>
       {locked && <div className={styles.equipLockNote}>Required minimum of 1</div>}
 
@@ -211,6 +217,7 @@ const INITIAL_EQUIPMENT = {
 const EQUIPMENT_META = {
   transmitter: {
     name: 'TX-50RF Transmitter',
+    unitPrice: 75,
     description: 'Silent Seminar Transmitter with 45 frequencies for better headset coverage in busy expo environments.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -222,6 +229,7 @@ const EQUIPMENT_META = {
   },
   headset: {
     name: '45ch Headset',
+    unitPrice: 30,
     description: 'Headset for Silent Seminar featuring 45 radio frequencies to ensure a clear experience.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -233,6 +241,7 @@ const EQUIPMENT_META = {
   },
   branded: {
     name: 'Custom Branded 45ch Headset',
+    unitPrice: 30,
     description: 'Custom-branded headset with your logo or image, featuring all 45 unique radio frequencies for a clear experience.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -336,6 +345,20 @@ export default function SilentSeminarForm({ embedded = false }) {
   const totalHeadsets = getTotalHeadsets(equipment)
   const minLoadIn     = getMinLoadInDate(totalHeadsets)
 
+  const orderLines = useMemo(() =>
+    Object.entries(equipment)
+      .filter(([, v]) => v.checked)
+      .map(([key, v]) => ({
+        key,
+        name:      EQUIPMENT_META[key].name,
+        quantity:  v.quantity,
+        unitPrice: EQUIPMENT_META[key].unitPrice,
+        lineTotal: EQUIPMENT_META[key].unitPrice * v.quantity,
+      })),
+    [equipment])
+
+  const equipmentSubtotal = orderLines.reduce((sum, line) => sum + line.lineTotal, 0)
+
   const liveErrors = useMemo(
     () => validateDates(form, totalHeadsets, minLoadIn),
     [form, totalHeadsets, minLoadIn],
@@ -377,9 +400,12 @@ export default function SilentSeminarForm({ embedded = false }) {
 
     setLoading(true)
 
-    const selectedEquipment = Object.entries(equipment)
-      .filter(([, v]) => v.checked)
-      .map(([key, v]) => ({ item: EQUIPMENT_META[key].name, quantity: v.quantity }))
+    const selectedEquipment = orderLines.map(line => ({
+      item:       line.name,
+      quantity:   line.quantity,
+      unit_price: line.unitPrice,
+      line_total: line.lineTotal,
+    }))
 
     const payload = {
       event_name:               form.eventName,
@@ -396,6 +422,7 @@ export default function SilentSeminarForm({ embedded = false }) {
       phone:                    form.phone,
       notes:                    form.notes,
       equipment:                selectedEquipment,
+      equipment_subtotal:       equipmentSubtotal,
       submitted_at:             new Date().toISOString(),
       source:                   'encore-silent-seminar-portal',
     }
@@ -430,6 +457,7 @@ export default function SilentSeminarForm({ embedded = false }) {
         dates:      `${payload.start_date} to ${payload.end_date}`,
         shipping:   `${payload.shipping_address_type} — ${payload.shipping_address.split('\n')[0]}`,
         equipment:  selectedEquipment.map(e => `${e.quantity}x ${e.item}`).join(', '),
+        total:      `Estimated equipment total: ${formatUSD(equipmentSubtotal)} (excludes shipping)`,
       })
       setSubmitted(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -745,6 +773,7 @@ export default function SilentSeminarForm({ embedded = false }) {
                     name={EQUIPMENT_META.transmitter.name}
                     description={EQUIPMENT_META.transmitter.description}
                     icon={EQUIPMENT_META.transmitter.icon}
+                    unitPrice={EQUIPMENT_META.transmitter.unitPrice}
                     checked={equipment.transmitter.checked}
                     quantity={equipment.transmitter.quantity}
                     locked
@@ -768,6 +797,7 @@ export default function SilentSeminarForm({ embedded = false }) {
                         name={meta.name}
                         description={meta.description}
                         icon={meta.icon}
+                        unitPrice={meta.unitPrice}
                         checked={equipment[key].checked}
                         quantity={equipment[key].quantity}
                         locked={false}
@@ -785,6 +815,43 @@ export default function SilentSeminarForm({ embedded = false }) {
                   )}
                 </div>
                 <FieldError message={errors.equipment} show={!!errors.equipment} />
+              </section>
+
+              <div className={styles.divider} />
+
+              {/* ── Section 6: Order Summary ── */}
+              <section className={styles.formSection}>
+                <SectionHeading label="Order summary" />
+
+                <div className={styles.orderSummary}>
+                  {orderLines.map(line => (
+                    <div key={line.key} className={styles.summaryLine}>
+                      <div className={styles.summaryItem}>
+                        <span className={styles.summaryItemName}>{line.name}</span>
+                        <span className={styles.summaryItemDetail}>
+                          {line.quantity.toLocaleString('en-US')} × {formatUSD(line.unitPrice)}
+                        </span>
+                      </div>
+                      <span className={styles.summaryItemTotal}>{formatUSD(line.lineTotal)}</span>
+                    </div>
+                  ))}
+
+                  <div className={styles.summaryDivider} />
+
+                  <div className={styles.summaryLine}>
+                    <span className={styles.summaryLabel}>Shipping</span>
+                    <span className={styles.summaryShipping}>Quoted separately</span>
+                  </div>
+
+                  <div className={`${styles.summaryLine} ${styles.summaryTotalLine}`}>
+                    <span className={styles.summaryTotalLabel}>Estimated equipment total</span>
+                    <span className={styles.summaryTotalValue}>{formatUSD(equipmentSubtotal)}</span>
+                  </div>
+                </div>
+
+                <p className={styles.fieldHint}>
+                  Pricing shown is an estimate and excludes shipping. Final pricing will be confirmed on your official quote.
+                </p>
               </section>
 
               {/* ── Submit ── */}

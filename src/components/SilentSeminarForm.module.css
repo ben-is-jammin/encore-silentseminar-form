@@ -491,6 +491,54 @@
   padding-right: 8px;
 }
 
+/* ─── Pricing & order summary ─── */
+.equipPrice {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--magenta);
+  margin-bottom: 6px;
+}
+.transmitterHeader .equipPrice { margin-bottom: 0; }
+
+.orderSummary {
+  background: var(--off-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.summaryLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.summaryItemName { font-size: 12.5px; font-weight: 700; color: var(--indigo); }
+.summaryItemDetail { font-size: 11px; color: var(--gray-mid); }
+.summaryItemTotal {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--gray-dark);
+  white-space: nowrap;
+}
+.summaryDivider { height: 1px; background: var(--border); margin: 8px 0; }
+.summaryLabel { font-size: 12.5px; font-weight: 600; color: var(--gray-dark); }
+.summaryShipping {
+  font-size: 11.5px;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--gray-mid);
+}
+.summaryTotalLine { padding-top: 10px; }
+.summaryTotalLabel { font-size: 13px; font-weight: 700; color: var(--indigo); }
+.summaryTotalValue { font-size: 16px; font-weight: 700; color: var(--indigo); }
+
 /* ─── Submit ─── */
 .submitWrap { margin-top: 32px; }
 .submitBtn {
