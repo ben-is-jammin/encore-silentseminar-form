@@ -61,8 +61,19 @@ function encodeBasicAuth(username, password) {
 }
 
 const MAX_QTY = 10000
+const DROP_SHIP_THRESHOLD = 250
+const ZIP_RE = /^\d{5}(-\d{4})?$/
 
-function EquipCard({ id, name, description, icon, checked, quantity, locked, wide, onToggle, onQtyChange }) {
+// The shipping calculator is fully built (ZIP field, calculate button, FedEx
+// n8n workflow) but hidden pending a team decision on how shipping is actually
+// handled. Set VITE_ENABLE_SHIPPING_CALCULATOR=true to turn it back on.
+const SHIPPING_CALCULATOR_ENABLED = import.meta.env.VITE_ENABLE_SHIPPING_CALCULATOR === 'true'
+
+function formatUSD(amount) {
+  return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function EquipCard({ id, name, description, icon, unitPrice, checked, quantity, locked, wide, onToggle, onQtyChange }) {
   const [rawQty, setRawQty] = useState(String(quantity))
   useEffect(() => { setRawQty(String(quantity)) }, [quantity])
 
@@ -79,6 +90,7 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
         <div className={styles.transmitterHeader}>
           <div className={styles.equipIcon}>{icon}</div>
           <div className={styles.equipName}>{name}</div>
+          <div className={styles.equipPrice}>${unitPrice} per unit</div>
         </div>
         <div className={styles.transmitterBody}>
           <div className={styles.quantityRow}>
@@ -142,6 +154,7 @@ function EquipCard({ id, name, description, icon, checked, quantity, locked, wid
       )}
       <div className={styles.equipIcon}>{icon}</div>
       <div className={styles.equipName}>{name}</div>
+      <div className={styles.equipPrice}>${unitPrice} per unit</div>
       <div className={styles.equipDesc}>{description}</div>
       {locked && <div className={styles.equipLockNote}>Required minimum of 1</div>}
 
@@ -195,6 +208,7 @@ const INITIAL_FORM = {
   loadInDate:             '',
   loadOutDate:            '',
   shippingType:           '',
+  shippingZip:            '',
   shippingAddress:        '',
   fullName:               '',
   email:                  '',
@@ -211,6 +225,7 @@ const INITIAL_EQUIPMENT = {
 const EQUIPMENT_META = {
   transmitter: {
     name: 'TX-50RF Transmitter',
+    unitPrice: 75,
     description: 'Silent Seminar Transmitter with 45 frequencies for better headset coverage in busy expo environments.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -222,6 +237,7 @@ const EQUIPMENT_META = {
   },
   headset: {
     name: '45ch Headset',
+    unitPrice: 30,
     description: 'Headset for Silent Seminar featuring 45 radio frequencies to ensure a clear experience.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -233,6 +249,7 @@ const EQUIPMENT_META = {
   },
   branded: {
     name: 'Custom Branded 45ch Headset',
+    unitPrice: 30,
     description: 'Custom-branded headset with your logo or image, featuring all 45 unique radio frequencies for a clear experience.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -299,6 +316,8 @@ function validate(form, equipment, liveErrors) {
   if (!form.loadInDate)              errors.loadInDate      = 'Required.'
   if (!form.loadOutDate)             errors.loadOutDate     = 'Required.'
   if (!form.shippingType)            errors.shippingType    = 'Please select an address type.'
+  if (SHIPPING_CALCULATOR_ENABLED && !ZIP_RE.test(form.shippingZip.trim()))
+                                     errors.shippingZip     = 'Please enter a valid 5-digit ZIP code.'
   if (!form.shippingAddress.trim())  errors.shippingAddress = 'Please enter a shipping address.'
   if (!form.fullName.trim())         errors.fullName        = 'Please enter your full name.'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -333,8 +352,37 @@ export default function SilentSeminarForm({ embedded = false }) {
   const [loading, setLoading]     = useState(false)
   const [summary, setSummary]     = useState(null)
 
+  // Shipping estimate — a quote is tied to the exact ZIP + equipment selection
+  // it was calculated for (the "signature"); any change makes it stale.
+  const [shippingQuote, setShippingQuote]   = useState(null)
+  const [shippingStatus, setShippingStatus] = useState('idle') // idle | loading | done | error
+  const [shippingError, setShippingError]   = useState(null)
+
   const totalHeadsets = getTotalHeadsets(equipment)
   const minLoadIn     = getMinLoadInDate(totalHeadsets)
+
+  const orderLines = useMemo(() =>
+    Object.entries(equipment)
+      .filter(([, v]) => v.checked)
+      .map(([key, v]) => ({
+        key,
+        name:      EQUIPMENT_META[key].name,
+        quantity:  v.quantity,
+        unitPrice: EQUIPMENT_META[key].unitPrice,
+        lineTotal: EQUIPMENT_META[key].unitPrice * v.quantity,
+      })),
+    [equipment])
+
+  const equipmentSubtotal = orderLines.reduce((sum, line) => sum + line.lineTotal, 0)
+
+  const quoteSignature = useMemo(
+    () => `${form.shippingZip.trim()}|${orderLines.map(l => `${l.key}:${l.quantity}`).join(',')}`,
+    [form.shippingZip, orderLines],
+  )
+  const quoteIsCurrent   = shippingStatus === 'done' && shippingQuote?.signature === quoteSignature
+  const shippingIncluded = quoteIsCurrent && !shippingQuote.dropShip && typeof shippingQuote.amount === 'number'
+  const estimatedTotal   = equipmentSubtotal + (shippingIncluded ? shippingQuote.amount : 0)
+  const canSubmit        = !SHIPPING_CALCULATOR_ENABLED || quoteIsCurrent
 
   const liveErrors = useMemo(
     () => validateDates(form, totalHeadsets, minLoadIn),
@@ -365,8 +413,84 @@ export default function SilentSeminarForm({ embedded = false }) {
     setErrors(prev => { const next = { ...prev }; delete next.loadInDate; return next })
   }, [])
 
+  const handleCalculateShipping = async () => {
+    const zip = form.shippingZip.trim()
+    if (!ZIP_RE.test(zip)) {
+      setErrors(prev => ({ ...prev, shippingZip: 'Enter a valid ZIP code to calculate shipping.' }))
+      document.getElementById('shippingZip')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+
+    const signature = quoteSignature
+    setShippingStatus('loading')
+    setShippingError(null)
+
+    try {
+      // Orders past the drop-ship threshold never get a parcel rate — resolve
+      // locally without hitting the webhook. The workflow enforces this too.
+      if (totalHeadsets > DROP_SHIP_THRESHOLD) {
+        setShippingQuote({
+          signature,
+          dropShip: true,
+          amount: null,
+          message: `Orders over ${DROP_SHIP_THRESHOLD} headsets are drop shipped. ShowGear will quote shipping with your official quote.`,
+        })
+        setShippingStatus('done')
+        return
+      }
+
+      const webhookUrl = import.meta.env.VITE_SHIPPING_WEBHOOK_URL
+      let data
+
+      if (webhookUrl) {
+        const res = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            destination_zip: zip,
+            quote_signature: signature,
+            equipment: orderLines.map(l => ({ key: l.key, name: l.name, quantity: l.quantity })),
+          }),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        data = await res.json()
+        if (data.status !== 'ok') throw new Error(data.error || 'Shipping calculation failed')
+      } else {
+        // Dev mode — simulate a round-trip estimate
+        await new Promise(r => setTimeout(r, 900))
+        const cases = Math.ceil(totalHeadsets / 25)
+        const transmitters = equipment.transmitter.quantity
+        data = {
+          status: 'ok',
+          drop_ship: false,
+          service: 'Demo estimate',
+          currency: 'USD',
+          round_trip: true,
+          estimated_shipping: (cases * 45 + transmitters * 25) * 2,
+          quote_signature: signature,
+        }
+      }
+
+      setShippingQuote({
+        signature: data.quote_signature || signature,
+        dropShip: !!data.drop_ship,
+        amount: typeof data.estimated_shipping === 'number' ? data.estimated_shipping : null,
+        service: data.service || null,
+        currency: data.currency || 'USD',
+        roundTrip: data.round_trip !== false,
+        message: data.message || null,
+      })
+      setShippingStatus('done')
+    } catch (err) {
+      console.error(err)
+      setShippingError('Could not calculate shipping. Please try again or contact ShowGear directly.')
+      setShippingStatus('error')
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!canSubmit) return
     const errs = validate(form, equipment, liveErrors)
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
@@ -377,9 +501,12 @@ export default function SilentSeminarForm({ embedded = false }) {
 
     setLoading(true)
 
-    const selectedEquipment = Object.entries(equipment)
-      .filter(([, v]) => v.checked)
-      .map(([key, v]) => ({ item: EQUIPMENT_META[key].name, quantity: v.quantity }))
+    const selectedEquipment = orderLines.map(line => ({
+      item:       line.name,
+      quantity:   line.quantity,
+      unit_price: line.unitPrice,
+      line_total: line.lineTotal,
+    }))
 
     const payload = {
       event_name:               form.eventName,
@@ -390,12 +517,22 @@ export default function SilentSeminarForm({ embedded = false }) {
       load_in_date:             form.loadInDate,
       load_out_date:            form.loadOutDate,
       shipping_address_type:    form.shippingType,
+      shipping_zip:             form.shippingZip.trim(),
       shipping_address:         form.shippingAddress,
       full_name:                form.fullName,
       email:                    form.email,
       phone:                    form.phone,
       notes:                    form.notes,
       equipment:                selectedEquipment,
+      equipment_subtotal:       equipmentSubtotal,
+      shipping_estimate: SHIPPING_CALCULATOR_ENABLED && shippingQuote ? {
+        drop_ship:  shippingQuote.dropShip,
+        amount:     shippingQuote.amount,
+        currency:   shippingQuote.currency || 'USD',
+        service:    shippingQuote.service || null,
+        round_trip: shippingQuote.roundTrip !== false,
+      } : null,
+      estimated_total:          estimatedTotal,
       submitted_at:             new Date().toISOString(),
       source:                   'encore-silent-seminar-portal',
     }
@@ -430,6 +567,14 @@ export default function SilentSeminarForm({ embedded = false }) {
         dates:      `${payload.start_date} to ${payload.end_date}`,
         shipping:   `${payload.shipping_address_type} — ${payload.shipping_address.split('\n')[0]}`,
         equipment:  selectedEquipment.map(e => `${e.quantity}x ${e.item}`).join(', '),
+        shippingCost: SHIPPING_CALCULATOR_ENABLED && shippingQuote
+          ? (shippingQuote.dropShip
+              ? 'Shipping: drop ship — quoted separately by ShowGear'
+              : `Estimated shipping (round trip): ${formatUSD(shippingQuote.amount)}`)
+          : 'Shipping costs will be calculated for your invoice',
+        total: SHIPPING_CALCULATOR_ENABLED && shippingQuote && !shippingQuote.dropShip
+          ? `Estimated total: ${formatUSD(estimatedTotal)}`
+          : `Estimated equipment total: ${formatUSD(estimatedTotal)} (excludes shipping)`,
       })
       setSubmitted(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -448,6 +593,9 @@ export default function SilentSeminarForm({ embedded = false }) {
     setErrors({})
     setSummary(null)
     setSubmitted(false)
+    setShippingQuote(null)
+    setShippingStatus('idle')
+    setShippingError(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -609,23 +757,44 @@ export default function SilentSeminarForm({ embedded = false }) {
                   })}
                 </div>
 
-                <div className={styles.fieldGroup}>
-                  <label className={styles.label} htmlFor="shippingType">
-                    Shipping address type <span className={styles.req}>*</span>
-                  </label>
-                  <select
-                    className={`${styles.select} ${errors.shippingType ? styles.inputError : ''}`}
-                    id="shippingType"
-                    value={form.shippingType}
-                    onChange={e => setField('shippingType', e.target.value)}
-                    data-error={!!errors.shippingType}
-                  >
-                    <option value="" disabled>Select address type</option>
-                    <option value="Venue">Venue</option>
-                    <option value="Preferred AV Vendor">Preferred AV Vendor</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  <FieldError message={errors.shippingType} show={!!errors.shippingType} />
+                <div className={`${styles.fieldGroup} ${SHIPPING_CALCULATOR_ENABLED ? styles.row2 : ''}`}>
+                  <div>
+                    <label className={styles.label} htmlFor="shippingType">
+                      Shipping address type <span className={styles.req}>*</span>
+                    </label>
+                    <select
+                      className={`${styles.select} ${errors.shippingType ? styles.inputError : ''}`}
+                      id="shippingType"
+                      value={form.shippingType}
+                      onChange={e => setField('shippingType', e.target.value)}
+                      data-error={!!errors.shippingType}
+                    >
+                      <option value="" disabled>Select address type</option>
+                      <option value="Venue">Venue</option>
+                      <option value="Preferred AV Vendor">Preferred AV Vendor</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <FieldError message={errors.shippingType} show={!!errors.shippingType} />
+                  </div>
+                  {SHIPPING_CALCULATOR_ENABLED && (
+                    <div>
+                      <label className={styles.label} htmlFor="shippingZip">
+                        Shipping ZIP code <span className={styles.req}>*</span>
+                      </label>
+                      <input
+                        className={`${styles.input} ${errors.shippingZip ? styles.inputError : ''}`}
+                        id="shippingZip" type="text"
+                        inputMode="numeric"
+                        placeholder="e.g. 80202"
+                        maxLength={10}
+                        value={form.shippingZip}
+                        onChange={e => setField('shippingZip', e.target.value.replace(/[^0-9-]/g, ''))}
+                        data-error={!!errors.shippingZip}
+                      />
+                      <p className={styles.fieldHint}>Used to calculate estimated shipping</p>
+                      <FieldError message={errors.shippingZip} show={!!errors.shippingZip} />
+                    </div>
+                  )}
                 </div>
 
                 <div className={styles.fieldGroup}>
@@ -745,6 +914,7 @@ export default function SilentSeminarForm({ embedded = false }) {
                     name={EQUIPMENT_META.transmitter.name}
                     description={EQUIPMENT_META.transmitter.description}
                     icon={EQUIPMENT_META.transmitter.icon}
+                    unitPrice={EQUIPMENT_META.transmitter.unitPrice}
                     checked={equipment.transmitter.checked}
                     quantity={equipment.transmitter.quantity}
                     locked
@@ -768,6 +938,7 @@ export default function SilentSeminarForm({ embedded = false }) {
                         name={meta.name}
                         description={meta.description}
                         icon={meta.icon}
+                        unitPrice={meta.unitPrice}
                         checked={equipment[key].checked}
                         quantity={equipment[key].quantity}
                         locked={false}
@@ -787,15 +958,116 @@ export default function SilentSeminarForm({ embedded = false }) {
                 <FieldError message={errors.equipment} show={!!errors.equipment} />
               </section>
 
+              <div className={styles.divider} />
+
+              {/* ── Section 6: Order Summary ── */}
+              <section className={styles.formSection}>
+                <SectionHeading label="Order summary" />
+
+                <div className={styles.orderSummary}>
+                  {orderLines.map(line => (
+                    <div key={line.key} className={styles.summaryLine}>
+                      <div className={styles.summaryItem}>
+                        <span className={styles.summaryItemName}>{line.name}</span>
+                        <span className={styles.summaryItemDetail}>
+                          {line.quantity.toLocaleString('en-US')} × {formatUSD(line.unitPrice)}
+                        </span>
+                      </div>
+                      <span className={styles.summaryItemTotal}>{formatUSD(line.lineTotal)}</span>
+                    </div>
+                  ))}
+
+                  <div className={styles.summaryDivider} />
+
+                  <div className={styles.summaryLine}>
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Shipping</span>
+                      {shippingIncluded && (
+                        <span className={styles.summaryItemDetail}>
+                          Round trip{shippingQuote.service ? ` · ${shippingQuote.service}` : ''}
+                        </span>
+                      )}
+                    </div>
+                    {!SHIPPING_CALCULATOR_ENABLED ? (
+                      <span className={styles.summaryShipping}>Calculated for your invoice</span>
+                    ) : shippingStatus === 'loading' ? (
+                      <span className={styles.summaryShipping}>Calculating…</span>
+                    ) : quoteIsCurrent && shippingQuote.dropShip ? (
+                      <span className={styles.summaryShipping}>Drop ship — quoted separately</span>
+                    ) : shippingIncluded ? (
+                      <span className={styles.summaryItemTotal}>{formatUSD(shippingQuote.amount)}</span>
+                    ) : shippingQuote || shippingStatus === 'error' ? (
+                      <span className={styles.summaryShippingStale}>Recalculation needed</span>
+                    ) : (
+                      <span className={styles.summaryShipping}>Not yet calculated</span>
+                    )}
+                  </div>
+
+                  <div className={`${styles.summaryLine} ${styles.summaryTotalLine}`}>
+                    <span className={styles.summaryTotalLabel}>
+                      {shippingIncluded ? 'Estimated total' : 'Estimated equipment total'}
+                    </span>
+                    <span className={styles.summaryTotalValue}>{formatUSD(estimatedTotal)}</span>
+                  </div>
+                </div>
+
+                {!SHIPPING_CALCULATOR_ENABLED && (
+                  <p className={styles.dropShipNote}>
+                    Shipping costs will be calculated and included on your invoice.
+                  </p>
+                )}
+
+                {SHIPPING_CALCULATOR_ENABLED && (
+                  <div className={styles.calcShippingRow}>
+                    <button
+                      type="button"
+                      className={styles.calcShippingBtn}
+                      onClick={handleCalculateShipping}
+                      disabled={shippingStatus === 'loading'}
+                    >
+                      {shippingStatus === 'loading'
+                        ? 'Calculating…'
+                        : shippingQuote && !quoteIsCurrent
+                          ? 'Recalculate estimated shipping'
+                          : 'Calculate estimated shipping'}
+                    </button>
+                    {shippingError && shippingStatus === 'error' && (
+                      <p className={styles.fieldError}>{shippingError}</p>
+                    )}
+                    {quoteIsCurrent && shippingQuote.dropShip && (
+                      <p className={styles.dropShipNote}>
+                        {shippingQuote.message || `Orders over ${DROP_SHIP_THRESHOLD} headsets are drop shipped. ShowGear will quote shipping with your official quote.`}
+                      </p>
+                    )}
+                    {shippingQuote && !quoteIsCurrent && shippingStatus !== 'loading' && shippingStatus !== 'error' && (
+                      <p className={styles.staleHint}>
+                        Your selections changed — recalculate shipping before submitting.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <p className={styles.fieldHint}>
+                  {SHIPPING_CALCULATOR_ENABLED
+                    ? 'Pricing shown is an estimate. Final pricing will be confirmed on your official quote.'
+                    : 'Pricing shown is an estimate and excludes shipping. Final pricing will be confirmed on your official quote.'}
+                </p>
+              </section>
+
               {/* ── Submit ── */}
               <div className={styles.submitWrap}>
                 <button
                   type="submit"
                   className={styles.submitBtn}
-                  disabled={loading}
+                  disabled={loading || !canSubmit}
                 >
                   {loading ? <span className={styles.spinner} aria-hidden="true" /> : 'Submit order'}
                 </button>
+                {!canSubmit && (
+                  <p className={styles.submitHint}>
+                    Calculate estimated shipping above to enable submission.
+                  </p>
+                )}
               </div>
 
             </form>
