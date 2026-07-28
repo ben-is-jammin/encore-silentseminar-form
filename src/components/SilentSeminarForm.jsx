@@ -249,7 +249,7 @@ const EQUIPMENT_META = {
   },
   branded: {
     name: 'Custom Branded 45ch Headset',
-    unitPrice: 30,
+    unitPrice: 35,
     description: 'Custom-branded headset with your logo or image, featuring all 45 unique radio frequencies for a clear experience.',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
